@@ -1,4 +1,4 @@
--- Salary totals without individual salaries, for anyone who needs the numbers but not the people.
+-- Salary totals, no individuals
 select
     department,
     region,

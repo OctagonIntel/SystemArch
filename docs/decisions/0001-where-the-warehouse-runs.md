@@ -20,7 +20,7 @@ Local Docker would have matched CI most closely, but it needs admin rights and W
 
 ## Trade-offs
 
-Supabase isn't vanilla Postgres. It comes with its own roles (anon, authenticated, service_role and so on) and schemas like auth and storage, so the drift check will have to ignore anything the policy doesn't own. The postgres user can create roles but isn't a true superuser, which might limit some pgaudit settings. Connections go through the session pooler because the direct connection is IPv6 only. The free project also pauses after about a week idle, so I need to wake it up before a demo, and none of this works offline.
+Supabase isn't vanilla Postgres. It comes with its own roles (anon, authenticated, service_role and so on) and schemas like auth and storage, so the drift check will have to ignore anything the policy doesn't own. The postgres user can create roles but isn't a true superuser, which might limit some pgaudit settings. It can't even set superuser-only role attributes to off, so the drift check verifies them instead. Connections go through the session pooler because the direct connection is IPv6 only. The free project also pauses after about a week idle, so I need to wake it up before a demo, and none of this works offline.
 
 Running CI on plain Postgres is how I keep myself honest here. If the same policy and tests pass on both, nothing depends on Supabase quirks.
 

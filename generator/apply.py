@@ -1,14 +1,7 @@
-"""Applies policy/access.yaml and policy/people.yaml to the warehouse.
+"""Applies policy/*.yaml to the warehouse. `--plan` prints the SQL instead.
 
-    python -m generator.apply          apply it
-    python -m generator.apply --plan   just print the SQL
-
-Order, all in one transaction:
-  1. roles, people and schemas (as admin)
-  2. owner-owned table DDL and grants (as the owner)
-  3. rules for dbt-built tables into the governance schema (as the owner)
-  4. governance.apply_access on every dbt-built table that already exists (as its builder)
-Safe to run as often as you like, it converges on the policy.
+One transaction: roles and people (admin), DDL and grants (owner), governance
+rules (owner), then apply_access on existing dbt tables (builder). Idempotent.
 """
 import argparse
 import sys

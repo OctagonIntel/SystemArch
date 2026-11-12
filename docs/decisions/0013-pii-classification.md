@@ -4,31 +4,31 @@ Status: Accepted, 2026-11-12
 
 ## Context
 
-To hash and grant by sensitivity, every personal column needs a level, and the levels need to mean something consistent.
+To hash and grant by sensitivity, each personal column needs a level, and the levels need clear meanings.
 
 ## Options
 
-A simple PII yes/no flag, which can't treat a salary differently from an email. Three levels (public, internal, restricted). Or four levels in the style of ISO 27001 (public, internal, confidential, restricted).
+A yes/no PII flag. Three levels. Or four levels, ISO 27001 style.
 
 ## Decision
 
 Four levels, set per column in `access.yaml`:
 
-- **public**: fine for anyone with access to the table. IDs, region, department, dates of business events.
-- **internal**: identifies a person but does little harm on its own. Names and work email addresses.
-- **confidential**: could hurt someone or the business if it leaked. Salary and phone numbers.
-- **restricted**: identity theft material. National ID and date of birth.
+- **public**: anyone with the table. IDs, region, department, business dates.
+- **internal**: identifies someone, low harm alone. Names, work emails.
+- **confidential**: harmful if leaked. Salary, phone numbers.
+- **restricted**: identity theft material. National ID, date of birth.
 
-A role's clearance on a `marts_restricted` table shows it every column at or below that level. HR has restricted. Finance and sales have confidential. Support has internal on tickets and confidential on customers.
+A role's clearance shows it every column at or below that level. HR and payroll get restricted, finance and sales get confidential, and support gets internal on tickets and confidential on customers.
 
 ## Reasoning
 
-<!-- Matt: why four levels -->
+A yes/no flag can't tell an email from a national ID, and finance is the proof: they need salaries but not IDs. Four levels match how most companies already label data, so the policy reads naturally to an auditor.
 
 ## Trade-offs
 
-Levels are set per column name within a table, so a column keeps its level in every schema the table is built in. Anything not listed is public by default, which is the risky direction. Phase 3 adds a test that fails if a column in `marts_restricted` isn't listed.
+Unlisted columns default to public, the risky direction. Phase 3 adds a test that fails on any unclassified column in `marts_restricted`.
 
 ## How I know it works
 
-Finance can read salary (confidential) but not national ID (restricted). HR can read both.
+Finance reads salary but not national ID. Payroll and HR read both.

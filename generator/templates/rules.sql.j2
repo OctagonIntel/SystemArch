@@ -1,6 +1,5 @@
--- Generated from policy/access.yaml. Don't edit by hand.
--- Part 3 runs as {{ owner }}: loads the rules for dbt-built tables into the governance
--- schema. governance.apply_access reads these after every dbt build.
+-- Generated from policy/*.yaml. Don't edit.
+-- Part 3, as {{ owner }}: rules for dbt-built tables, read by governance.apply_access.
 
 TRUNCATE governance.managed_roles, governance.table_access, governance.column_classification, governance.row_filters;
 

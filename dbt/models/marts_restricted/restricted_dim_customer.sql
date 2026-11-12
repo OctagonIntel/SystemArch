@@ -1,5 +1,5 @@
 {{ config(alias='dim_customer') }}
--- Clear-text customers. Column grants by clearance, rows filtered by region.
+-- Clear-text customers, columns by clearance, rows by region
 
 select
     customer_id,

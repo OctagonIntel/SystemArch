@@ -4,24 +4,24 @@ Status: Accepted, 2026-11-12
 
 ## Context
 
-Sales is split by region. A salesperson in Europe should only see EU customers and deals, while analysts, finance and support see every region.
+Sales is split by region. EU sales should only see EU customers and deals. Analysts, finance and support see everything.
 
 ## Options
 
-Row-level security with a policy per role, where the role decides the region. RLS that reads a session variable like `app.region`, which is flexible but anyone who can run `SET` can change their own region. Or a view per region in its own schema, which has no RLS at all and needs new objects for every new region.
+RLS where the role decides the region. RLS reading a session variable like `app.region`. Or a view per region.
 
 ## Decision
 
-RLS, with the region set by the role. In `access.yaml`, a table listed under `row_filters` gets RLS, and every role that reads it has to say `regions: [EU]` or `regions: all`. If a role reads a filtered table without saying which regions, the policy fails to load. `governance.apply_access` turns that into one `CREATE POLICY <role>_rows ... FOR SELECT TO <role>` per role per table.
+RLS by role. Tables under `row_filters` in the policy get RLS, and every role reading one must declare `regions`, or the policy won't load. Each role gets its own policy per table.
 
 ## Reasoning
 
-<!-- Matt: why region-by-role over a session variable -->
+The region should come from who you are, not from something you can set. With a session variable, anyone who can run `SET` picks their own region. Views per region multiply with every new region. Per-role policies also show up in `pg_policies`, which keeps the drift check simple.
 
 ## Trade-offs
 
-A person in two regional groups sees both, because RLS policies add up. That's what I want for a global sales lead, but it means group membership has to be reviewed, which is the access review's job (Phase 4). RLS doesn't apply to the table owner. That's `svc_transform`, see ADR-014.
+Someone in two regional groups sees both, because policies add up. That's right for a global sales lead, but it means group membership needs review (Phase 4). The table owner skips RLS, see ADR-014.
 
 ## How I know it works
 
-Sofia (sales_eu) only gets EU rows from `marts.dim_customer`. Daniel (sales_eu and sales_us) gets EU and US. Amara (analyst) gets all three regions.
+Sofia (sales_eu) sees only EU. Daniel (sales_eu and sales_us) sees EU and US. Amara (analyst) sees all three.

@@ -1,6 +1,5 @@
 {{ config(alias='dim_employee') }}
--- Clear-text employees. Readable only through column grants by clearance (ADR-005, ADR-013).
--- marts.dim_employee is the hashed copy everyone else uses.
+-- Clear-text employees, columns by clearance. Hashed copy: marts.dim_employee
 
 select
     employee_id,

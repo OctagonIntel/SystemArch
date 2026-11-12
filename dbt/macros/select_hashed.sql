@@ -1,9 +1,4 @@
-{#
-  ADR-005. Selects every column of `relation`, swapping each column that
-  policy/access.yaml classifies above public for governance.pii_hash(column).
-  The classification is read from governance.column_classification at run time,
-  so the policy file stays the only place it's written down.
-#}
+{# ADR-005. Selects every column, hashing the ones classified above public. #}
 {% macro select_hashed(relation, table_name) %}
 {% if execute %}
     {% set classified = run_query(

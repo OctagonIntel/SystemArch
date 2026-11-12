@@ -1,8 +1,6 @@
--- Generated from policy/access.yaml. Don't edit by hand.
--- Part 2 runs as {{ owner }}. For every role in the policy it first takes away
--- everything in our schemas, then grants exactly what the policy says.
--- Tables dbt builds aren't owned by {{ owner }}; governance.apply_access handles those (part 3).
--- It all runs in one transaction, so nobody ever sees the in-between state.
+-- Generated from policy/*.yaml. Don't edit.
+-- Part 2, as {{ owner }}: revoke everything, then grant what the policy says.
+-- dbt-built tables are handled by governance.apply_access. One transaction.
 
 {% for schema in schemas.values() %}
 REVOKE ALL ON SCHEMA {{ schema.name }} FROM PUBLIC;

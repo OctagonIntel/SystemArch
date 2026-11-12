@@ -4,26 +4,24 @@ Status: Accepted, 2026-11-12
 
 ## Context
 
-Access has to land on real people, and the audit trail has to say which person did something, not just which team.
+Access has to land on people, and the logs need to say which person did something, not just which team.
 
 ## Options
 
-Group roles only, where `analyst` itself logs in. Simplest, but the logs can't tell two analysts apart. Group roles plus a handful of named logins that are members. Or group roles plus a file that stands in for an identity provider export (Okta, Entra ID), which the generator turns into logins.
+Group roles that log in directly. Group roles plus a few named logins. Or group roles plus a file that stands in for an identity provider export.
 
 ## Decision
 
-Groups plus a fake IdP export. Group roles (`analyst`, `hr`, `finance`, `sales_eu`, `sales_us`, `sales_apac`, `support`, `auditor`) live in `access.yaml` and can't log in. `policy/people.yaml` lists each person and their groups. apply-policy gives each person a login role (`amara.okafor` becomes `amara_okafor`) that's a member of their groups and holds nothing directly.
-
-Someone who disappears from people.yaml loses their login and every group on the next apply. Their role isn't dropped, so the audit log still has a name to point at.
+Groups plus a fake IdP export. Groups live in `access.yaml` and can't log in. `people.yaml` lists each person and their groups, and each person gets their own login with no direct grants. Removing someone disables their login but keeps the role for the audit trail.
 
 ## Reasoning
 
-<!-- Matt: why the IdP-style file over plain named logins -->
+That's how it works in real companies: people get access through groups managed in the IdP, and nobody grants to individuals. A separate people file keeps "who is in which group" apart from "what a group can do", which is exactly what an access review asks about.
 
 ## Trade-offs
 
-people.yaml is hand-written here. In a real company it would be pulled from the IdP on a schedule, and nobody would edit it. People can only be in human groups, never a service account, and the loader rejects anything else. That's one of the separation-of-duties rules Phase 3 tests.
+The file is hand-written here. In a real setup it would be synced from the IdP. People can only join human groups, never service accounts, and the loader rejects anything else.
 
 ## How I know it works
 
-Ten people from people.yaml exist as login roles with their own passwords. The Phase 2 smoke test ran every check as a person, not as a group.
+Eleven people exist as their own logins, and every access check runs as a person.

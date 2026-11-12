@@ -1,15 +1,11 @@
--- The governance schema: the policy's rules as data, plus the two functions that
--- enforce them on tables dbt builds. Runs as the owner, safe to run again.
--- apply-policy refreshes the rule tables from policy/*.yaml every time.
+-- Policy rules as data, and the functions that enforce them on dbt-built tables.
+-- Runs as the owner. apply-policy refills the rule tables each run.
 
--- Every role the policy manages. apply_access revokes from all of them before granting.
 CREATE TABLE IF NOT EXISTS governance.managed_roles (
     role_name text PRIMARY KEY
 );
 
--- What each role may do on dbt-built tables. table_name '*' means every table in the schema.
--- clearance_rank caps which classified columns a role can see (column-level grant).
--- regions is the row filter for tables in row_filters. '{*}' means every region.
+-- table_name '*' = whole schema. clearance_rank caps visible columns. regions '{*}' = all.
 CREATE TABLE IF NOT EXISTS governance.table_access (
     role_name      text   NOT NULL,
     schema_name    text   NOT NULL,
@@ -20,7 +16,6 @@ CREATE TABLE IF NOT EXISTS governance.table_access (
     PRIMARY KEY (role_name, schema_name, table_name)
 );
 
--- ADR-013. Columns not listed here are public.
 CREATE TABLE IF NOT EXISTS governance.column_classification (
     table_name  text NOT NULL,
     column_name text NOT NULL,
@@ -29,7 +24,6 @@ CREATE TABLE IF NOT EXISTS governance.column_classification (
     PRIMARY KEY (table_name, column_name)
 );
 
--- ADR-006. Which column the region RLS policy filters on.
 CREATE TABLE IF NOT EXISTS governance.row_filters (
     schema_name text NOT NULL,
     table_name  text NOT NULL,
@@ -37,8 +31,7 @@ CREATE TABLE IF NOT EXISTS governance.row_filters (
     PRIMARY KEY (schema_name, table_name)
 );
 
--- The hashing salt. Nobody gets SELECT on this, only pii_hash reads it (as the owner).
--- Without the salt, a hashed email or date of birth could be found by hashing guesses.
+-- Nobody can read the salt. Without it, hashes can't be brute-forced from guesses.
 CREATE TABLE IF NOT EXISTS governance.pii_salt (
     id   boolean PRIMARY KEY DEFAULT true CHECK (id),
     salt text NOT NULL
@@ -48,8 +41,7 @@ SELECT replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
 WHERE NOT EXISTS (SELECT 1 FROM governance.pii_salt);
 REVOKE ALL ON governance.pii_salt FROM PUBLIC;
 
--- ADR-005. Turns a PII value into a stable 16-character token. Same input, same token,
--- so joins and counts still work on the hashed marts.
+-- Salted SHA-256, 16 chars. Same input, same token, so joins still work.
 CREATE OR REPLACE FUNCTION governance.pii_hash(value text)
 RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER
@@ -61,9 +53,8 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION governance.pii_hash(text) FROM PUBLIC;
 
--- ADR-014. Called by dbt after it builds each table (post-hook), and by apply-policy
--- for tables that already exist. Runs as the caller, who has to own the table.
--- Wipes every grant and RLS policy on the table, then applies exactly what the rules say.
+-- Wipes all grants and RLS policies on a table, then applies the rules. Caller must own it.
+-- Called by the dbt post-hook and by apply-policy (ADR-014).
 CREATE OR REPLACE FUNCTION governance.apply_access(target regclass)
 RETURNS void
 LANGUAGE plpgsql
@@ -104,7 +95,7 @@ BEGIN
         RETURN;
     END IF;
 
-    -- RLS denies by default, so a role with SELECT but no policy sees zero rows.
+    -- RLS denies by default: SELECT without a policy returns no rows.
     EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', target);
     FOR r IN SELECT a.role_name, a.regions FROM governance.table_access a
              WHERE a.schema_name = s AND a.table_name IN (n, '*') AND 'SELECT' = ANY (a.privileges)

@@ -1,5 +1,5 @@
 {{ config(alias='fct_tickets') }}
--- Clear-text tickets, so support can see who to reply to.
+-- Clear-text tickets, so support knows who to reply to
 
 select
     t.ticket_id,

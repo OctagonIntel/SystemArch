@@ -1,6 +1,6 @@
 # Decision log
 
-Every real decision in this project gets an ADR here, using [the template](0000-template.md). Claude helped me lay out the options. The choices are mine.
+Every real decision in this project gets an ADR here, using [the template](0000-template.md).
 
 | # | Decision | Where it landed |
 |---|---|---|

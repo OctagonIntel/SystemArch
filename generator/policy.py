@@ -1,5 +1,4 @@
-"""Loads policy/access.yaml and policy/people.yaml and checks them before anything
-touches the database."""
+"""Loads and validates policy/access.yaml and policy/people.yaml."""
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
