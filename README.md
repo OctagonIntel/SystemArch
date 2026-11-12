@@ -50,3 +50,7 @@ just seed                 # apply policy, generate data, ingest, build marts
 `policy/access.yaml` is the single source of truth for access. `generator/` turns it into SQL. `ddl/` holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, and `dbt/` the staging and mart models.
 
 The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md).
+
+## How changes get in
+
+`main` is protected. Every change goes through a pull request, review comments have to be resolved before it can merge, and PRs are squash-merged so history stays one commit per change. Force pushes and deleting `main` are blocked for everyone, me included. Secret scanning with push protection, Dependabot alerts and private vulnerability reporting are on.

@@ -1,0 +1,8 @@
+# Every change needs the owner's eyes. The policy files and the code that turns them
+# into grants are the ones that matter most, so they're listed on their own as well.
+*                   @OctagonIntel
+/policy/            @OctagonIntel
+/generator/         @OctagonIntel
+/ddl/               @OctagonIntel
+/docs/decisions/    @OctagonIntel
+/.github/           @OctagonIntel
