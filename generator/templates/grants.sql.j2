@@ -1,30 +1,56 @@
 -- Generated from policy/*.yaml. Don't edit.
--- Part 2, as {{ owner }}: revoke everything, then grant what the policy says.
--- dbt-built tables are handled by governance.apply_access. One transaction.
+-- Part 2, as {{ owner }}: revoke every grant in our schemas, from anyone, then grant
+-- what the policy says. dbt-built tables are handled by governance.apply_access.
 
 {% for schema in schemas.values() %}
-REVOKE ALL ON SCHEMA {{ schema.name }} FROM PUBLIC;
 COMMENT ON SCHEMA {{ schema.name }} IS {{ schema.description | sql_literal }};
 {% endfor %}
 
-{% for role in roles %}
--- {{ role.name }}: {{ role.purpose }}
-REVOKE ALL ON SCHEMA {{ schemas | join(", ") }} FROM {{ role.name }};
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA {{ schemas | join(", ") }} FROM {{ role.name }};
 DO $$
-DECLARE t record;
+DECLARE r record;
 BEGIN
-  FOR t IN
-    SELECT n.nspname, c.relname
-    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  -- Schemas
+  FOR r IN
+    SELECT n.nspname AS obj, a.grantee
+    FROM pg_namespace n, aclexplode(n.nspacl) a
+    WHERE n.nspname IN ({% for s in schemas %}'{{ s }}'{{ ", " if not loop.last }}{% endfor %}) AND a.grantee <> n.nspowner
+  LOOP
+    EXECUTE format('REVOKE ALL ON SCHEMA %I FROM %s', r.obj,
+      CASE r.grantee WHEN 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r.grantee)) END);
+  END LOOP;
+
+  -- Tables and views we own. Column grants go with them.
+  FOR r IN
+    SELECT DISTINCT c.oid::regclass AS obj, a.grantee
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    CROSS JOIN LATERAL (
+      SELECT x.grantee FROM aclexplode(c.relacl) x
+      UNION SELECT x.grantee FROM pg_attribute att, aclexplode(att.attacl) x WHERE att.attrelid = c.oid
+    ) a
     WHERE n.nspname IN ({% for s in schemas %}'{{ s }}'{{ ", " if not loop.last }}{% endfor %})
       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
-      AND c.relowner = '{{ owner }}'::regrole
+      AND c.relowner = '{{ owner }}'::regrole AND a.grantee <> c.relowner
   LOOP
-    EXECUTE format('REVOKE ALL ON %I.%I FROM {{ role.name }}', t.nspname, t.relname);
+    EXECUTE format('REVOKE ALL ON %s FROM %s', r.obj,
+      CASE r.grantee WHEN 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r.grantee)) END);
+  END LOOP;
+
+  -- Functions
+  FOR r IN
+    SELECT p.oid::regprocedure AS obj, a.grantee
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace,
+         aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    WHERE n.nspname IN ({% for s in schemas %}'{{ s }}'{{ ", " if not loop.last }}{% endfor %}) AND a.grantee <> p.proowner
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s', r.obj,
+      CASE r.grantee WHEN 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r.grantee)) END);
   END LOOP;
 END
 $$;
+
+{% for role in roles %}
+-- {{ role.name }}: {{ role.purpose }}
 {% for schema, privs in role.schema_grants.items() %}
 GRANT {{ privs | join(", ") }} ON SCHEMA {{ schema }} TO {{ role.name }};
 {% endfor %}

@@ -19,23 +19,51 @@ schemas:
   governance: Policy rules as tables, plus the functions that apply them.
   audit: Query and access logs. Auditor only, append-only.
 
-# ADR-013. Lowest first. Unlisted columns are public.
+# ADR-013. Lowest first. Every column of a table with personal data is listed,
+# public ones too, and a test fails if one is missing.
 classification:
   levels: [public, internal, confidential, restricted]
   columns:
     dim_employee:
+      employee_id: public
       full_name: internal
       email: internal
       phone: confidential
-      salary_eur: confidential
       date_of_birth: restricted
       national_id: restricted
+      department: public
+      job_title: public
+      region: public
+      country: public
+      hire_date: public
+      salary_eur: confidential
+      manager_id: public
     dim_customer:
+      customer_id: public
+      company_name: public
       contact_name: internal
       contact_email: internal
       contact_phone: confidential
+      region: public
+      country: public
+      account_owner_id: public
+      created_at: public
     fct_tickets:
+      ticket_id: public
+      customer_id: public
+      region: public
       contact_email: internal
+      subject: public
+      priority: public
+      status: public
+      opened_at: public
+      closed_at: public
+      resolution_hours: public
+      agent_id: public
+
+# Supabase roles that hold pg_read_all_data, so they can read every table.
+# Not ours to remove, so they're listed: a new one fails the separation-of-duties tests.
+platform_readers: [supabase_read_only_user, supabase_etl_admin]
 
 # ADR-006. Region RLS. Readers must declare `regions`.
 row_filters:
@@ -93,7 +121,6 @@ roles:
       governance: [USAGE]
     tables:
       raw.*: [SELECT]
-      governance.managed_roles: [SELECT]
       governance.table_access: [SELECT]
       governance.column_classification: [SELECT]
       governance.row_filters: [SELECT]

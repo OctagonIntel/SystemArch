@@ -48,13 +48,13 @@ transform:
 # Everything from an empty warehouse to built marts
 seed: apply-policy generate ingest transform
 
-# Phase 3: access tests, connecting as each real role
-test:
-    @echo "Not built yet, Phase 3"
+# Access tests, separation of duties and drift, logged in as each real person
+test *args:
+    {{py}} -m pytest {{args}}
 
-# Phase 3: compare the live database against the policy
+# List every difference between the live database and the policy
 drift:
-    @echo "Not built yet, Phase 3"
+    {{py}} -m drift.check
 
 # Phase 4: access review report
 report:

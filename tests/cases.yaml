@@ -1,0 +1,150 @@
+# Key access cases, written by hand. If the policy changes one of these, it should be on purpose.
+#   who:    the person or service account to log in as
+#   sql:    what they try
+#   expect: allow or deny
+#   rows:   (optional) the exact set of values the first column must return
+
+# Region filtering (ADR-006)
+- name: EU sales sees only EU customers
+  who: sofia_marchetti
+  sql: select distinct region from marts.dim_customer
+  expect: allow
+  rows: [EU]
+
+- name: EU sales sees only EU deals
+  who: sofia_marchetti
+  sql: select distinct region from marts.fct_deals
+  expect: allow
+  rows: [EU]
+
+- name: APAC sales sees only APAC customers, contacts included
+  who: mia_tanaka
+  sql: select distinct region from marts_restricted.dim_customer
+  expect: allow
+  rows: [APAC]
+
+- name: A lead in two regions sees both
+  who: daniel_reyes
+  sql: select distinct region from marts.fct_deals
+  expect: allow
+  rows: [EU, US]
+
+- name: Analysts see every region
+  who: amara_okafor
+  sql: select distinct region from marts.dim_customer
+  expect: allow
+  rows: [APAC, EU, US]
+
+- name: Sales can't see invoices
+  who: sofia_marchetti
+  sql: select 1 from marts.fct_invoices limit 1
+  expect: deny
+
+# Hashing and clearance (ADR-005, ADR-013)
+- name: Analysts only get hashed emails
+  who: amara_okafor
+  sql: select bool_and(email ~ '^[0-9a-f]{16}$') from marts.dim_employee
+  expect: allow
+  rows: [true]
+
+- name: Analysts can't read clear-text employees
+  who: amara_okafor
+  sql: select email from marts_restricted.dim_employee limit 1
+  expect: deny
+
+- name: Nobody can hash guesses to unmask people
+  who: amara_okafor
+  sql: select governance.pii_hash('guess@example.com')
+  expect: deny
+
+- name: HR reads national IDs
+  who: priya_nair
+  sql: select national_id from marts_restricted.dim_employee limit 1
+  expect: allow
+
+- name: Payroll reads national IDs
+  who: tom_whitfield
+  sql: select national_id, date_of_birth from marts_restricted.dim_employee limit 1
+  expect: allow
+
+- name: Finance reads salaries
+  who: grace_liu
+  sql: select salary_eur from marts_restricted.dim_employee limit 1
+  expect: allow
+
+- name: Finance can't read national IDs
+  who: grace_liu
+  sql: select national_id from marts_restricted.dim_employee limit 1
+  expect: deny
+
+- name: Finance can't select every employee column
+  who: grace_liu
+  sql: select * from marts_restricted.dim_employee limit 1
+  expect: deny
+
+- name: Support reads ticket contact emails
+  who: hannah_berg
+  sql: select contact_email from marts_restricted.fct_tickets limit 1
+  expect: allow
+
+- name: Support can't see employees
+  who: hannah_berg
+  sql: select 1 from marts.dim_employee limit 1
+  expect: deny
+
+- name: Support can't see salaries
+  who: hannah_berg
+  sql: select salary_eur from marts_restricted.dim_employee limit 1
+  expect: deny
+
+- name: Support can't see invoices
+  who: hannah_berg
+  sql: select 1 from marts.fct_invoices limit 1
+  expect: deny
+
+# Auditor and layers
+- name: The auditor sees no business data
+  who: noah_clarke
+  sql: select 1 from marts.fct_deals limit 1
+  expect: deny
+
+- name: People never read raw
+  who: amara_okafor
+  sql: select 1 from raw.hr_employees limit 1
+  expect: deny
+
+- name: People never read staging
+  who: lukas_brandt
+  sql: select 1 from staging.stg_hr__employees limit 1
+  expect: deny
+
+- name: People can't change marts
+  who: sofia_marchetti
+  sql: update marts.dim_customer set region = region where false
+  expect: deny
+
+# Service accounts (ADR-012, ADR-014)
+- name: Ingest can't read back what it loaded
+  who: svc_ingest_hr
+  sql: select 1 from raw.hr_employees limit 1
+  expect: deny
+
+- name: Ingest can't touch another source
+  who: svc_ingest_hr
+  sql: delete from raw.crm_customers where false
+  expect: deny
+
+- name: Ingest can't read marts
+  who: svc_ingest_crm
+  sql: select 1 from marts.dim_customer limit 1
+  expect: deny
+
+- name: dbt can't read the hashing salt
+  who: svc_transform
+  sql: select salt from governance.pii_salt
+  expect: deny
+
+- name: dbt can't change the policy rules
+  who: svc_transform
+  sql: delete from governance.table_access where false
+  expect: deny

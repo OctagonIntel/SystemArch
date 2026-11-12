@@ -1,9 +1,7 @@
 -- Policy rules as data, and the functions that enforce them on dbt-built tables.
 -- Runs as the owner. apply-policy refills the rule tables each run.
 
-CREATE TABLE IF NOT EXISTS governance.managed_roles (
-    role_name text PRIMARY KEY
-);
+DROP TABLE IF EXISTS governance.managed_roles;
 
 -- table_name '*' = whole schema. clearance_rank caps visible columns. regions '{*}' = all.
 CREATE TABLE IF NOT EXISTS governance.table_access (
@@ -67,9 +65,10 @@ BEGIN
       INTO s, n, tbl_owner
       FROM pg_class c WHERE c.oid = target;
 
-    EXECUTE format('REVOKE ALL ON %s FROM PUBLIC', target);
-    FOR r IN SELECT role_name FROM governance.managed_roles WHERE role_name <> tbl_owner LOOP
-        EXECUTE format('REVOKE ALL ON %s FROM %I', target, r.role_name);
+    FOR r IN SELECT x.grantee FROM pg_class c, aclexplode(c.relacl) x WHERE c.oid = target AND x.grantee <> c.relowner
+             UNION SELECT x.grantee FROM pg_attribute att, aclexplode(att.attacl) x WHERE att.attrelid = target LOOP
+        EXECUTE format('REVOKE ALL ON %s FROM %s', target,
+            CASE r.grantee WHEN 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(r.grantee)) END);
     END LOOP;
     FOR r IN SELECT polname FROM pg_policy WHERE polrelid = target LOOP
         EXECUTE format('DROP POLICY %I ON %s', r.polname, target);
