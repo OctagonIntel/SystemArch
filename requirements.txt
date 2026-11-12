@@ -1,6 +1,6 @@
 # Pinned for reproducible installs (pip + venv, no lockfile).
 psycopg[binary]==3.2.3
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 PyYAML==6.0.2
 Jinja2==3.1.4
 Faker==30.8.2
