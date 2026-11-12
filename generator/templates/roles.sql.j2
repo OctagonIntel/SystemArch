@@ -1,0 +1,32 @@
+-- Generated from policy/access.yaml. Don't edit by hand.
+-- Part 1 runs as the admin connection: roles and schemas.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ owner }}') THEN
+    CREATE ROLE {{ owner }} NOLOGIN;
+  END IF;
+END
+$$;
+ALTER ROLE {{ owner }} NOLOGIN;
+COMMENT ON ROLE {{ owner }} IS 'Owns the warehouse schemas and raw tables. Never logs in.';
+
+-- The admin connection switches to the owner to create tables and hand out grants,
+-- so every grant shows the owner as grantor.
+GRANT {{ owner }} TO CURRENT_USER WITH SET TRUE, INHERIT FALSE;
+
+{% for role in roles %}
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ role.name }}') THEN
+    CREATE ROLE {{ role.name }} NOLOGIN;
+  END IF;
+END
+$$;
+ALTER ROLE {{ role.name }} {{ "LOGIN" if role.login else "NOLOGIN" }};
+COMMENT ON ROLE {{ role.name }} IS {{ (role.type ~ ": " ~ role.purpose) | sql_literal }};
+
+{% endfor %}
+{% for schema in schemas %}
+CREATE SCHEMA IF NOT EXISTS {{ schema }} AUTHORIZATION {{ owner }};
+{% endfor %}

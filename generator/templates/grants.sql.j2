@@ -1,0 +1,35 @@
+-- Generated from policy/access.yaml. Don't edit by hand.
+-- Part 2 runs as {{ owner }}. For every role in the policy it first takes away
+-- everything in our schemas, then grants exactly what the policy says.
+-- It all runs in one transaction, so nobody ever sees the in-between state.
+
+{% for schema, description in schemas.items() %}
+REVOKE ALL ON SCHEMA {{ schema }} FROM PUBLIC;
+COMMENT ON SCHEMA {{ schema }} IS {{ description | sql_literal }};
+{% endfor %}
+
+{% for role in roles %}
+-- {{ role.name }}: {{ role.purpose }}
+REVOKE ALL ON SCHEMA {{ schemas | join(", ") }} FROM {{ role.name }};
+DO $$
+DECLARE t record;
+BEGIN
+  FOR t IN
+    SELECT n.nspname, c.relname
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname IN ({% for s in schemas %}'{{ s }}'{{ ", " if not loop.last }}{% endfor %})
+      AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+      AND c.relowner = '{{ owner }}'::regrole
+  LOOP
+    EXECUTE format('REVOKE ALL ON %I.%I FROM {{ role.name }}', t.nspname, t.relname);
+  END LOOP;
+END
+$$;
+{% for schema, privs in role.schema_grants.items() %}
+GRANT {{ privs | join(", ") }} ON SCHEMA {{ schema }} TO {{ role.name }};
+{% endfor %}
+{% for g in role.table_grants %}
+GRANT {{ g.privileges | join(", ") }} ON {{ (g.schema ~ "." ~ g.table) if g.table else ("ALL TABLES IN SCHEMA " ~ g.schema) }} TO {{ role.name }};
+{% endfor %}
+
+{% endfor %}

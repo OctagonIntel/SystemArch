@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: stg_hr__employees
+    columns:
+      - name: employee_id
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests:
+          - accepted_values: {values: [EU, US, APAC]}
+
+  - name: stg_crm__customers
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests:
+          - accepted_values: {values: [EU, US, APAC]}
+      - name: account_owner_id
+        data_tests:
+          - relationships: {to: ref('stg_hr__employees'), field: employee_id}
+
+  - name: stg_crm__deals
+    columns:
+      - name: deal_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - relationships: {to: ref('stg_crm__customers'), field: customer_id}
+
+  - name: stg_support__tickets
+    columns:
+      - name: ticket_id
+        data_tests: [unique, not_null]
+
+  - name: stg_finance__invoices
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+      - name: currency
+        data_tests:
+          - accepted_values: {values: [EUR, USD, AUD]}

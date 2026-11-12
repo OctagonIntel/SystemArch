@@ -13,8 +13,10 @@ __pycache__/
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+dbt/.user.yml
 logs/
 
 # Generated output
+data/
 report/out/
 generator/out/

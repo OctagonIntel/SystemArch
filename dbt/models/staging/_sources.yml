@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Append-only landing tables, everything as text. Loaded by the svc_ingest_* accounts.
+    tables:
+      - name: hr_employees
+      - name: crm_customers
+      - name: crm_deals
+      - name: support_tickets
+      - name: finance_invoices

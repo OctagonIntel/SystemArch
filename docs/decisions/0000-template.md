@@ -1,24 +1,23 @@
-# ADR-NNN: <title>
+# ADR-NNN: Title
 
-- **Status:** Proposed | Accepted | Superseded by ADR-XXX
-- **Date:** YYYY-MM-DD
-- **Decider:** Matt
+Status: Proposed / Accepted, date
 
 ## Context
-What problem are we solving, and what constrains the answer?
 
-## Options considered
-1. **Option A**: pros / cons
-2. **Option B**: pros / cons
+What's the problem and what limits the answer.
+
+## Options
+
+What I looked at and the main pro/con of each.
 
 ## Decision
-What we chose, in one sentence.
 
-## Reasoning
-Why. *(Matt's words.)*
+What I picked and why.
 
-## Trade-offs accepted
-What we give up, and why that's acceptable.
+## Trade-offs
 
-## How we prove it works
-The test, check or report that shows this decision is in effect.
+What I'm giving up and why I'm fine with it.
+
+## How I know it works
+
+The test, check or report that shows it's actually in effect.

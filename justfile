@@ -1,8 +1,9 @@
-# Task runner. Install: `winget install Casey.Just`. List recipes: `just`.
+# Task runner. Install with `winget install Casey.Just`, then run `just` to see the recipes.
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
-set dotenv-load := false
+set dotenv-load := true
 
-venv_python := if os_family() == "windows" { ".venv/Scripts/python.exe" } else { ".venv/bin/python" }
+py  := if os_family() == "windows" { ".venv/Scripts/python.exe" } else { ".venv/bin/python" }
+dbt := if os_family() == "windows" { ".venv/Scripts/dbt.exe" } else { ".venv/bin/dbt" }
 
 default:
     @just --list
@@ -10,29 +11,51 @@ default:
 # Create the virtualenv and install pinned dependencies
 setup:
     python -m venv .venv
-    {{venv_python}} -m pip install --upgrade pip
-    {{venv_python}} -m pip install -r requirements.txt
+    {{py}} -m pip install --upgrade pip
+    {{py}} -m pip install -r requirements.txt
 
-# Verify the warehouse is reachable (Supabase — nothing to start locally, see ADR-001)
+# Check the warehouse is reachable
 up:
-    {{venv_python}} scripts/check_connection.py
+    {{py}} -m scripts.check_connection
 
-# Phase 1: generate fake data and ingest it as each service account
-seed:
-    @echo "Not implemented yet - Phase 1"
+# Show the SQL the policy turns into, without running it
+plan:
+    {{py}} -m generator.apply --plan
 
-# Phase 2: render policy/access.yaml to SQL and apply it
+# Apply policy/access.yaml to the warehouse
 apply-policy:
-    @echo "Not implemented yet - Phase 2"
+    {{py}} -m generator.apply
 
-# Phase 3: run access tests, connecting as each real role
+# New passwords for service accounts (all of them, or the ones you name)
+rotate-creds *roles:
+    {{py}} -m scripts.rotate_creds {{roles}}
+
+# Write fake source exports to data/exports
+generate:
+    {{py}} -m seed.generate
+
+# Load every source into raw, each as its own service account
+ingest:
+    {{py}} -m ingest.hr
+    {{py}} -m ingest.crm
+    {{py}} -m ingest.support
+    {{py}} -m ingest.finance
+
+# Build staging and marts with dbt, as svc_transform
+transform:
+    {{dbt}} build --project-dir dbt --profiles-dir dbt
+
+# Everything from an empty warehouse to built marts
+seed: apply-policy generate ingest transform
+
+# Phase 3: access tests, connecting as each real role
 test:
-    @echo "Not implemented yet - Phase 3"
+    @echo "Not built yet, Phase 3"
 
-# Phase 3: compare live database against policy/access.yaml
+# Phase 3: compare the live database against the policy
 drift:
-    @echo "Not implemented yet - Phase 3"
+    @echo "Not built yet, Phase 3"
 
-# Phase 4: generate the access review report
+# Phase 4: access review report
 report:
-    @echo "Not implemented yet - Phase 4"
+    @echo "Not built yet, Phase 4"

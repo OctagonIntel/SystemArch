@@ -1,0 +1,59 @@
+# Who can do what in the warehouse. This is the only place access is defined.
+# `just plan` shows the SQL this turns into, `just apply-policy` applies it.
+#
+# Phase 1 only has the service accounts. Human roles, masking and RLS come in Phase 2.
+
+version: 1
+
+# Owns every schema and raw table. Can't log in. Nobody works as this role day to day.
+owner: wh_owner
+
+schemas:
+  raw: Landing zone. Only the ingest accounts write here, people never read it.
+  staging: Cleaned and typed by dbt. Only svc_transform uses it.
+  marts: Business tables. People read from here, through policies.
+  audit: Query and access logs. Auditor only, append-only.
+
+roles:
+  svc_ingest_hr:
+    type: service
+    purpose: Loads the HR system export into raw
+    schemas:
+      raw: [USAGE]
+    tables:
+      raw.hr_employees: [INSERT]
+
+  svc_ingest_crm:
+    type: service
+    purpose: Loads the CRM export into raw
+    schemas:
+      raw: [USAGE]
+    tables:
+      raw.crm_customers: [INSERT]
+      raw.crm_deals: [INSERT]
+
+  svc_ingest_support:
+    type: service
+    purpose: Loads the support ticket export into raw
+    schemas:
+      raw: [USAGE]
+    tables:
+      raw.support_tickets: [INSERT]
+
+  svc_ingest_finance:
+    type: service
+    purpose: Loads the finance export into raw
+    schemas:
+      raw: [USAGE]
+    tables:
+      raw.finance_invoices: [INSERT]
+
+  svc_transform:
+    type: service
+    purpose: Runs dbt, raw to staging to marts
+    schemas:
+      raw: [USAGE]
+      staging: [USAGE, CREATE]
+      marts: [USAGE, CREATE]
+    tables:
+      raw.*: [SELECT]

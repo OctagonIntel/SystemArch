@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: dim_employee
+    description: One row per employee, including salary and personal details.
+    columns:
+      - name: employee_id
+        data_tests: [unique, not_null]
+
+  - name: dim_customer
+    description: One row per customer.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: fct_deals
+    columns:
+      - name: deal_id
+        data_tests: [unique, not_null]
+
+  - name: fct_tickets
+    columns:
+      - name: ticket_id
+        data_tests: [unique, not_null]
+
+  - name: fct_invoices
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+
+  - name: agg_salary_by_department
+    description: Salary totals per department and region, no individual salaries.

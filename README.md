@@ -1,10 +1,8 @@
-# Governed Data Warehouse
+# SystemArch: a governed data warehouse
 
-A small Postgres warehouse where **access control is the product**. Several fake source systems land data into one warehouse. Every human and service account gets least-privilege access, enforced in the database (grants, column masking, row-level security) and generated from a single policy file. Automated tests, drift detection and an access review report **prove** who can see what.
+A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-> Status: **Phase 0** (repo and environment)
-
-## Architecture
+Where I am: Phase 1 is done. The data generators, ingestion and dbt models work, and the service accounts are already driven by the policy file. Next up is Phase 2: human roles, masking and RLS.
 
 ```mermaid
 flowchart LR
@@ -16,10 +14,10 @@ flowchart LR
   end
 
   subgraph WH[Postgres warehouse]
-    RAW[(raw schema)]
-    STG[(staging schema)]
-    MART[(marts schema)]
-    AUD[(audit schema)]
+    RAW[(raw)]
+    STG[(staging)]
+    MART[(marts)]
+    AUD[(audit)]
   end
 
   HR -->|svc_ingest_hr| RAW
@@ -34,20 +32,21 @@ flowchart LR
   WH --> DRIFT[drift check] & TESTS[access tests] & REPORT[access review report]
 ```
 
-## Quickstart
+## Running it
 
-Prerequisites: Python 3.11+, [`just`](https://github.com/casey/just) (`winget install Casey.Just`), and a Supabase project (see [ADR-001](docs/decisions/0001-where-the-warehouse-runs.md)).
+You need Python 3.11+, [just](https://github.com/casey/just) and a Postgres to point at. I use a Supabase free project, see [ADR-001](docs/decisions/0001-where-the-warehouse-runs.md).
 
-```powershell
-copy .env.example .env      # then fill in the Supabase session-pooler details
-just setup                  # create .venv and install dependencies
-just up                     # verify the warehouse is reachable
-just seed                   # Phase 1
-just apply-policy           # Phase 2
-just test                   # Phase 3
-just report                 # Phase 4
+```
+copy .env.example .env    # fill in the connection details
+just setup                # virtualenv and dependencies
+just up                   # check the connection
+just seed                 # apply policy, generate data, ingest, build marts
 ```
 
-## Decisions
+`just plan` shows the SQL the policy turns into without running it. Run `just` on its own to see every command.
 
-All design decisions are recorded as ADRs in [`docs/decisions/`](docs/decisions/README.md).
+## Layout
+
+`policy/access.yaml` is the single source of truth for access. `generator/` turns it into SQL. `ddl/` holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, and `dbt/` the staging and mart models.
+
+The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md).
