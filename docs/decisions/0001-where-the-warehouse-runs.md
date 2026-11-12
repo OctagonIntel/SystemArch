@@ -19,7 +19,7 @@ The warehouse needs real PostgreSQL 16 features: roles, column-level grants, row
 **Postgres version:** the brief said 16, but Supabase provisions **17** (17.11 at setup). CI matches Supabase's major version, so dev and CI behave the same. Everything the brief relies on (roles, column grants, RLS) is unchanged between 16 and 17.
 
 ## Reasoning
-*TODO (Matt): why Supabase over the others, in your words.*
+Local Docker would have matched CI most closely, but it needs admin rights and WSL2, which I don’t have on my PC. Native Postgres on Windows can’t be reproduced from a clean clone and behaves differently from the Linux container CI uses. That left the hosted options. I chose Supabase over Neon because ADR-010 relies on pgaudit. Supabase supports it, and I confirmed that on first connection, while Neon limits it and restricts superuser access further. Supabase isn’t vanilla Postgres, but CI runs the same policy and tests against a plain postgres:17 container. If anything starts depending on Supabase-specific behaviour, CI will catch it. I also have used Supabase previously in prior projects and Apps that I built.
 
 ## Trade-offs accepted
 *Drafted by Claude for Matt to confirm, edit or reject:*
