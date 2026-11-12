@@ -1,9 +1,9 @@
 # Pinned for reproducible installs (pip + venv, no lockfile).
-psycopg[binary]==3.2.3
-python-dotenv==1.2.2
-PyYAML==6.0.2
-Jinja2==3.1.4
-Faker==30.8.2
-pytest==9.0.3
-dbt-core==1.8.8
-dbt-postgres==1.8.2
+psycopg[binary]==3.3.8
+python-dotenv==1.2.4
+PyYAML==6.0.3
+Jinja2==3.1.6
+Faker==40.52.0
+pytest==9.2.0
+dbt-core==1.12.6
+dbt-postgres==1.11.0
