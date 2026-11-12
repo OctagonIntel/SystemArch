@@ -16,6 +16,13 @@ models:
     staging:
       +schema: staging
       +materialized: view
+    # dbt rebuilds these tables, which drops their grants and RLS policies. The post-hook
+    # puts back exactly what policy/access.yaml says (ADR-014).
     marts:
       +schema: marts
       +materialized: table
+      +post-hook: "select governance.apply_access('{{ this }}'::regclass)"
+    marts_restricted:
+      +schema: marts_restricted
+      +materialized: table
+      +post-hook: "select governance.apply_access('{{ this }}'::regclass)"

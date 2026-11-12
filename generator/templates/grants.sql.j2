@@ -1,16 +1,18 @@
 -- Generated from policy/access.yaml. Don't edit by hand.
 -- Part 2 runs as {{ owner }}. For every role in the policy it first takes away
 -- everything in our schemas, then grants exactly what the policy says.
+-- Tables dbt builds aren't owned by {{ owner }}; governance.apply_access handles those (part 3).
 -- It all runs in one transaction, so nobody ever sees the in-between state.
 
-{% for schema, description in schemas.items() %}
-REVOKE ALL ON SCHEMA {{ schema }} FROM PUBLIC;
-COMMENT ON SCHEMA {{ schema }} IS {{ description | sql_literal }};
+{% for schema in schemas.values() %}
+REVOKE ALL ON SCHEMA {{ schema.name }} FROM PUBLIC;
+COMMENT ON SCHEMA {{ schema.name }} IS {{ schema.description | sql_literal }};
 {% endfor %}
 
 {% for role in roles %}
 -- {{ role.name }}: {{ role.purpose }}
 REVOKE ALL ON SCHEMA {{ schemas | join(", ") }} FROM {{ role.name }};
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA {{ schemas | join(", ") }} FROM {{ role.name }};
 DO $$
 DECLARE t record;
 BEGIN
@@ -28,8 +30,11 @@ $$;
 {% for schema, privs in role.schema_grants.items() %}
 GRANT {{ privs | join(", ") }} ON SCHEMA {{ schema }} TO {{ role.name }};
 {% endfor %}
-{% for g in role.table_grants %}
+{% for g in role.table_grants if not schemas[g.schema].built_by %}
 GRANT {{ g.privileges | join(", ") }} ON {{ (g.schema ~ "." ~ g.table) if g.table else ("ALL TABLES IN SCHEMA " ~ g.schema) }} TO {{ role.name }};
+{% endfor %}
+{% for fn, privs in role.function_grants.items() %}
+GRANT {{ privs | join(", ") }} ON FUNCTION {{ fn }} TO {{ role.name }};
 {% endfor %}
 
 {% endfor %}

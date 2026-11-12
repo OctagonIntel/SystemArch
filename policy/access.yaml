@@ -1,20 +1,58 @@
 # Who can do what in the warehouse. This is the only place access is defined.
 # `just plan` shows the SQL this turns into, `just apply-policy` applies it.
-#
-# Phase 1 only has the service accounts. Human roles, masking and RLS come in Phase 2.
+# People and their groups come from people.yaml, the IdP export (ADR-007).
 
 version: 1
 
-# Owns every schema and raw table. Can't log in. Nobody works as this role day to day.
+# Owns every schema and the raw and governance tables. Can't log in. Nobody works as this role.
 owner: wh_owner
 
+# built_by: dbt creates these tables as that service account, so it owns them. Access on them
+# is re-applied by governance.apply_access after every build (ADR-014).
 schemas:
   raw: Landing zone. Only the ingest accounts write here, people never read it.
   staging: Cleaned and typed by dbt. Only svc_transform uses it.
-  marts: Business tables. People read from here, through policies.
+  marts:
+    description: Business tables. Every column above public is hashed (ADR-005).
+    built_by: svc_transform
+  marts_restricted:
+    description: Clear-text copies of the tables with personal data. Column access by clearance.
+    built_by: svc_transform
+  governance: The policy's rules as tables, and the functions that apply them. Only dbt uses it.
   audit: Query and access logs. Auditor only, append-only.
 
+# ADR-013. Four levels, lowest first. Anything not listed is public.
+# In marts every listed column is hashed. In marts_restricted a role sees the columns
+# up to its clearance and nothing above it.
+classification:
+  levels: [public, internal, confidential, restricted]
+  columns:
+    dim_employee:
+      full_name: internal
+      email: internal
+      phone: confidential
+      salary_eur: confidential
+      date_of_birth: restricted
+      national_id: restricted
+    dim_customer:
+      contact_name: internal
+      contact_email: internal
+      contact_phone: confidential
+    fct_tickets:
+      contact_email: internal
+
+# ADR-006. RLS on these tables. Every role that reads one has to say which regions it sees.
+row_filters:
+  marts.dim_customer: region
+  marts.fct_deals: region
+  marts.fct_invoices: region
+  marts.fct_tickets: region
+  marts_restricted.dim_customer: region
+  marts_restricted.fct_tickets: region
+
 roles:
+  # Service accounts. One per job, each logs in with its own password (ADR-012).
+
   svc_ingest_hr:
     type: service
     purpose: Loads the HR system export into raw
@@ -50,10 +88,100 @@ roles:
 
   svc_transform:
     type: service
-    purpose: Runs dbt, raw to staging to marts
+    purpose: Runs dbt, raw to staging to marts, and re-applies access after each build
     schemas:
       raw: [USAGE]
       staging: [USAGE, CREATE]
       marts: [USAGE, CREATE]
+      marts_restricted: [USAGE, CREATE]
+      governance: [USAGE]
     tables:
       raw.*: [SELECT]
+      governance.managed_roles: [SELECT]
+      governance.table_access: [SELECT]
+      governance.column_classification: [SELECT]
+      governance.row_filters: [SELECT]
+    functions:
+      governance.pii_hash: [EXECUTE]
+      governance.apply_access: [EXECUTE]
+
+  # Groups for people. They can't log in, people get them through people.yaml.
+
+  analyst:
+    type: human
+    purpose: Company-wide reporting on hashed data, every region
+    regions: all
+    schemas:
+      marts: [USAGE]
+    tables:
+      marts.*: [SELECT]
+
+  hr:
+    type: human
+    purpose: Runs HR, sees everything about employees
+    schemas:
+      marts: [USAGE]
+      marts_restricted: [USAGE]
+    tables:
+      marts.dim_employee: [SELECT]
+      marts.agg_salary_by_department: [SELECT]
+      marts_restricted.dim_employee: {privileges: [SELECT], clearance: restricted}
+
+  finance:
+    type: human
+    purpose: Invoices, deals and payroll. Sees salaries, not national IDs or birth dates
+    regions: all
+    schemas:
+      marts: [USAGE]
+      marts_restricted: [USAGE]
+    tables:
+      marts.fct_invoices: [SELECT]
+      marts.fct_deals: [SELECT]
+      marts.dim_customer: [SELECT]
+      marts.agg_salary_by_department: [SELECT]
+      marts_restricted.dim_employee: {privileges: [SELECT], clearance: confidential}
+
+  sales_eu:
+    type: human
+    purpose: Sales team for Europe, sees EU customers and deals only
+    regions: [EU]
+    schemas: &sales_schemas
+      marts: [USAGE]
+      marts_restricted: [USAGE]
+    tables: &sales_tables
+      marts.dim_customer: [SELECT]
+      marts.fct_deals: [SELECT]
+      marts_restricted.dim_customer: {privileges: [SELECT], clearance: confidential}
+
+  sales_us:
+    type: human
+    purpose: Sales team for the US, sees US customers and deals only
+    regions: [US]
+    schemas: *sales_schemas
+    tables: *sales_tables
+
+  sales_apac:
+    type: human
+    purpose: Sales team for Asia-Pacific, sees APAC customers and deals only
+    regions: [APAC]
+    schemas: *sales_schemas
+    tables: *sales_tables
+
+  support:
+    type: human
+    purpose: Answers tickets, needs customer contact details, no money
+    regions: all
+    schemas:
+      marts: [USAGE]
+      marts_restricted: [USAGE]
+    tables:
+      marts.fct_tickets: [SELECT]
+      marts.dim_customer: [SELECT]
+      marts_restricted.fct_tickets: {privileges: [SELECT], clearance: internal}
+      marts_restricted.dim_customer: {privileges: [SELECT], clearance: confidential}
+
+  auditor:
+    type: human
+    purpose: Reviews access and query logs, never business data. Log access comes in Phase 4
+    schemas:
+      audit: [USAGE]

@@ -1,5 +1,5 @@
--- Generated from policy/access.yaml. Don't edit by hand.
--- Part 1 runs as the admin connection: roles and schemas.
+-- Generated from policy/access.yaml and policy/people.yaml. Don't edit by hand.
+-- Part 1 runs as the admin connection: roles, people and schemas.
 
 DO $$
 BEGIN
@@ -27,6 +27,55 @@ ALTER ROLE {{ role.name }} {{ "LOGIN" if role.login else "NOLOGIN" }};
 COMMENT ON ROLE {{ role.name }} IS {{ (role.type ~ ": " ~ role.purpose) | sql_literal }};
 
 {% endfor %}
+{% for builder in builders %}
+-- {{ builder }} owns the tables dbt builds. apply-policy switches to it to re-apply
+-- access on tables that already exist (ADR-014).
+GRANT {{ builder }} TO CURRENT_USER WITH SET TRUE, INHERIT FALSE;
+{% endfor %}
+
+-- People, from the IdP export in policy/people.yaml (ADR-007). Each gets a login
+-- role and is a member of their groups, nothing else. Access comes from the groups.
+{% for p in people %}
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{ p.login }}') THEN
+    CREATE ROLE {{ p.login }} LOGIN;
+  END IF;
+END
+$$;
+ALTER ROLE {{ p.login }} LOGIN;
+COMMENT ON ROLE {{ p.login }} IS {{ ("person: " ~ p.name ~ ", " ~ p.department ~ " (" ~ p.id ~ ")") | sql_literal }};
+{% for g in human_groups %}
+{% if g in p.groups %}
+GRANT {{ g }} TO {{ p.login }} WITH INHERIT TRUE, SET FALSE;
+{% else %}
+REVOKE {{ g }} FROM {{ p.login }};
+{% endif %}
+{% endfor %}
+
+{% endfor %}
+-- Leavers: anyone who was a person here but isn't in people.yaml any more loses
+-- their login and every group. The role stays so the audit trail still has a name.
+DO $$
+DECLARE r record; m record;
+BEGIN
+  FOR r IN
+    SELECT a.oid, a.rolname
+    FROM pg_roles a JOIN pg_shdescription d ON d.objoid = a.oid AND d.classoid = 'pg_authid'::regclass
+    WHERE d.description LIKE 'person: %'
+      AND a.rolname <> ALL (ARRAY[{% for p in people %}'{{ p.login }}'{{ ", " if not loop.last }}{% endfor %}]::name[])
+  LOOP
+    EXECUTE format('ALTER ROLE %I NOLOGIN', r.rolname);
+    FOR m IN SELECT roleid::regrole AS grp FROM pg_auth_members WHERE member = r.oid LOOP
+      EXECUTE format('REVOKE %s FROM %I', m.grp, r.rolname);
+    END LOOP;
+    EXECUTE format('COMMENT ON ROLE %I IS %L', r.rolname,
+      'left: ' || substr((SELECT description FROM pg_shdescription WHERE objoid = r.oid), 9) || ', disabled ' || current_date);
+    RAISE NOTICE 'Disabled leaver %', r.rolname;
+  END LOOP;
+END
+$$;
+
 {% for schema in schemas %}
 CREATE SCHEMA IF NOT EXISTS {{ schema }} AUTHORIZATION {{ owner }};
 {% endfor %}

@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: restricted_dim_employee
+    description: Employees in clear text. Columns shown depend on the reader's clearance.
+    columns:
+      - name: employee_id
+        data_tests: [unique, not_null]
+
+  - name: restricted_dim_customer
+    description: Customers with real contact details. Rows filtered by region.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: restricted_fct_tickets
+    description: Tickets with the real contact email.
+    columns:
+      - name: ticket_id
+        data_tests: [unique, not_null]

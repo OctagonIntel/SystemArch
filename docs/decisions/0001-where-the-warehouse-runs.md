@@ -15,7 +15,8 @@ I looked at four: Docker Desktop locally, Neon, Supabase, or installing Postgres
 Supabase free tier for dev and demos (Ireland region), and a plain postgres:17 container in GitHub Actions for CI. The brief said Postgres 16, but Supabase came up on 17.11, so CI runs 17 too and the versions match.
 
 ## Reasoning
-Local Docker would have matched CI most closely, but it needs admin rights and WSL2, which I don’t have on my PC. Native Postgres on Windows can’t be reproduced from a clean clone and behaves differently from the Linux container CI uses. That left the hosted options. I chose Supabase over Neon because ADR-010 relies on pgaudit. Supabase supports it, and I confirmed that on first connection, while Neon limits it and restricts superuser access further. Supabase isn’t vanilla Postgres, but CI runs the same policy and tests against a plain postgres:17 container. If anything starts depending on Supabase-specific behaviour, CI will catch it. I also have used Supabase previously in prior projects and Apps that I built.
+
+Local Docker would have matched CI most closely, but it needs admin rights and WSL2, which I don't have on this PC. Native Postgres on Windows can't be reproduced from a clean clone and behaves differently from the Linux container CI uses. That left the hosted options. I chose Supabase over Neon because ADR-010 relies on pgaudit. Supabase supports it, and I confirmed that on first connection, while Neon limits it and restricts superuser access further. I've also used Supabase before in projects and apps I've built, so I know its quirks.
 
 ## Trade-offs
 

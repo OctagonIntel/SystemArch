@@ -1,0 +1,31 @@
+-- Generated from policy/access.yaml. Don't edit by hand.
+-- Part 3 runs as {{ owner }}: loads the rules for dbt-built tables into the governance
+-- schema. governance.apply_access reads these after every dbt build.
+
+TRUNCATE governance.managed_roles, governance.table_access, governance.column_classification, governance.row_filters;
+
+INSERT INTO governance.managed_roles (role_name) VALUES
+{% for role in roles %}
+  ({{ role.name | sql_literal }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+
+{% if table_access %}
+INSERT INTO governance.table_access (role_name, schema_name, table_name, privileges, clearance_rank, regions) VALUES
+{% for a in table_access %}
+  ({{ a.role | sql_literal }}, {{ a.schema | sql_literal }}, {{ a.table | sql_literal }}, ARRAY[{% for p in a.privileges %}{{ p | sql_literal }}{{ ", " if not loop.last }}{% endfor %}], {{ a.clearance_rank if a.clearance_rank is not none else "NULL" }}, {% if a.regions is none %}NULL{% else %}ARRAY[{% for r in a.regions %}{{ r | sql_literal }}{{ ", " if not loop.last }}{% endfor %}]::text[]{% endif %}){{ "," if not loop.last else ";" }}
+{% endfor %}
+{% endif %}
+
+{% if classification %}
+INSERT INTO governance.column_classification (table_name, column_name, level, level_rank) VALUES
+{% for c in classification %}
+  ({{ c.table | sql_literal }}, {{ c.column | sql_literal }}, {{ c.level | sql_literal }}, {{ c.rank }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+{% endif %}
+
+{% if row_filters %}
+INSERT INTO governance.row_filters (schema_name, table_name, column_name) VALUES
+{% for f in row_filters %}
+  ({{ f.schema | sql_literal }}, {{ f.table | sql_literal }}, {{ f.column | sql_literal }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+{% endif %}

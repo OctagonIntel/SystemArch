@@ -1,0 +1,60 @@
+# Pretend export from the company identity provider (think Okta or Entra ID groups).
+# In a real setup this would be pulled from the IdP on a schedule, not edited by hand (ADR-007).
+#
+# Each person becomes a login role named after their id (amara.okafor -> amara_okafor)
+# and joins the listed groups from access.yaml. Groups are the only way to get access.
+# Remove someone from this file and the next apply-policy disables their login.
+
+exported_at: 2026-11-12
+
+people:
+  - id: amara.okafor
+    name: Amara Okafor
+    department: Data
+    groups: [analyst]
+
+  - id: lukas.brandt
+    name: Lukas Brandt
+    department: Data
+    groups: [analyst]
+
+  - id: priya.nair
+    name: Priya Nair
+    department: HR
+    groups: [hr]
+
+  - id: tom.whitfield
+    name: Tom Whitfield
+    department: Finance
+    groups: [finance]
+
+  - id: sofia.marchetti
+    name: Sofia Marchetti
+    department: Sales
+    groups: [sales_eu]
+
+  - id: jake.donnelly
+    name: Jake Donnelly
+    department: Sales
+    groups: [sales_us]
+
+  - id: mia.tanaka
+    name: Mia Tanaka
+    department: Sales
+    groups: [sales_apac]
+
+  # Runs global sales, so sits in two regional groups and sees both.
+  - id: daniel.reyes
+    name: Daniel Reyes
+    department: Sales
+    groups: [sales_eu, sales_us]
+
+  - id: hannah.berg
+    name: Hannah Berg
+    department: Support
+    groups: [support]
+
+  - id: noah.clarke
+    name: Noah Clarke
+    department: Internal Audit
+    groups: [auditor]
