@@ -2,13 +2,13 @@ version: 2
 
 models:
   - name: dim_employee
-    description: One row per employee, including salary and personal details.
+    description: One row per employee. Names, contact details, salary, birth date and national ID are hashed.
     columns:
       - name: employee_id
         data_tests: [unique, not_null]
 
   - name: dim_customer
-    description: One row per customer.
+    description: One row per customer, contact details hashed. Rows filtered by region.
     columns:
       - name: customer_id
         data_tests: [unique, not_null]

@@ -1,0 +1,63 @@
+# Stand-in for an identity provider export (Okta, Entra ID). ADR-007.
+# Each id becomes a login (amara.okafor -> amara_okafor) in the listed groups.
+# Remove someone and the next apply disables their login.
+
+exported_at: 2026-11-12
+
+people:
+  - id: amara.okafor
+    name: Amara Okafor
+    department: Data
+    groups: [analyst]
+
+  - id: lukas.brandt
+    name: Lukas Brandt
+    department: Data
+    groups: [analyst]
+
+  - id: priya.nair
+    name: Priya Nair
+    department: HR
+    groups: [hr]
+
+  # Runs payroll, so also needs national IDs
+  - id: tom.whitfield
+    name: Tom Whitfield
+    department: Finance
+    groups: [finance, payroll]
+
+  - id: grace.liu
+    name: Grace Liu
+    department: Finance
+    groups: [finance]
+
+  - id: sofia.marchetti
+    name: Sofia Marchetti
+    department: Sales
+    groups: [sales_eu]
+
+  - id: jake.donnelly
+    name: Jake Donnelly
+    department: Sales
+    groups: [sales_us]
+
+  - id: mia.tanaka
+    name: Mia Tanaka
+    department: Sales
+    groups: [sales_apac]
+
+  # Global sales lead, sees EU and US
+  - id: daniel.reyes
+    name: Daniel Reyes
+    department: Sales
+    groups: [sales_eu, sales_us]
+
+  - id: hannah.berg
+    name: Hannah Berg
+    department: Support
+    groups: [support]
+
+  - id: noah.clarke
+    name: Noah Clarke
+    department: Internal Audit
+    groups: [auditor]

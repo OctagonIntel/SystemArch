@@ -1,10 +1,7 @@
-"""Applies policy/access.yaml to the warehouse.
+"""Applies policy/*.yaml to the warehouse. `--plan` prints the SQL instead.
 
-    python -m generator.apply          apply it
-    python -m generator.apply --plan   just print the SQL
-
-Order, all in one transaction: roles and schemas (as admin), then raw table DDL and
-grants (as the owner). Safe to run as often as you like, it converges on the policy.
+One transaction: roles and people (admin), DDL and grants (owner), governance
+rules (owner), then apply_access on existing dbt tables (builder). Idempotent.
 """
 import argparse
 import sys
@@ -23,8 +20,25 @@ def ddl_files():
 
 
 def missing_tables(conn, policy: Policy) -> list[str]:
-    wanted = {f"{g.schema}.{g.table}" for r in policy.roles.values() for g in r.table_grants if g.table}
+    wanted = {
+        f"{g.schema}.{g.table}"
+        for r in policy.roles.values() for g in r.table_grants
+        if g.table and not policy.schemas[g.schema].built_by
+    }
     return sorted(t for t in wanted if conn.execute("select to_regclass(%s)", (t,)).fetchone()[0] is None)
+
+
+def built_tables(conn, policy: Policy) -> list[tuple[str, str, str]]:
+    """(schema, table, builder) for every table dbt has already built."""
+    out = []
+    for schema in policy.schemas.values():
+        if not schema.built_by:
+            continue
+        rows = conn.execute(
+            "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
+            "where n.nspname = %s and c.relkind in ('r', 'p') order by 1", (schema.name,)).fetchall()
+        out += [(schema.name, r[0], schema.built_by) for r in rows]
+    return out
 
 
 def main() -> int:
@@ -38,7 +52,7 @@ def main() -> int:
         print(f"Policy is invalid: {e}")
         return 1
 
-    part1, part2 = render(policy)
+    part1, part2, part3 = render(policy)
 
     if args.plan:
         print(part1)
@@ -46,7 +60,9 @@ def main() -> int:
         for f in ddl_files():
             print(f"-- {f.relative_to(REPO)}\n{f.read_text(encoding='utf-8')}")
         print(part2)
+        print(part3)
         print("RESET ROLE;")
+        print("-- then, as each builder: SELECT governance.apply_access(t) for every table dbt has built")
         return 0
 
     with admin_connect() as conn:  # commits on success, rolls back on any error
@@ -58,9 +74,19 @@ def main() -> int:
         if missing:
             raise SystemExit(f"Policy grants on tables that don't exist: {', '.join(missing)}")
         conn.execute(part2)
+        conn.execute(part3)
         conn.execute("RESET ROLE")
 
-    print(f"Applied policy: {len(policy.roles)} roles, {len(policy.schemas)} schemas, owner {policy.owner}")
+        tables = built_tables(conn, policy)
+        for schema, table, builder in tables:
+            conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(builder)))
+            conn.execute("select governance.apply_access(%s::regclass)", (f'"{schema}"."{table}"',))
+            conn.execute("RESET ROLE")
+
+    print(f"Applied policy: {len(policy.roles)} roles, {len(policy.people)} people, "
+          f"{len(policy.schemas)} schemas, owner {policy.owner}")
+    print(f"Re-applied access on {len(tables)} dbt-built tables" if tables else
+          "No dbt-built tables yet, dbt applies access as it builds them")
 
     # New login roles need a password before anything can connect as them (ADR-012).
     from scripts.rotate_creds import rotate

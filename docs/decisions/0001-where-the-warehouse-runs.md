@@ -15,11 +15,12 @@ I looked at four: Docker Desktop locally, Neon, Supabase, or installing Postgres
 Supabase free tier for dev and demos (Ireland region), and a plain postgres:17 container in GitHub Actions for CI. The brief said Postgres 16, but Supabase came up on 17.11, so CI runs 17 too and the versions match.
 
 ## Reasoning
-Local Docker would have matched CI most closely, but it needs admin rights and WSL2, which I don’t have on my PC. Native Postgres on Windows can’t be reproduced from a clean clone and behaves differently from the Linux container CI uses. That left the hosted options. I chose Supabase over Neon because ADR-010 relies on pgaudit. Supabase supports it, and I confirmed that on first connection, while Neon limits it and restricts superuser access further. Supabase isn’t vanilla Postgres, but CI runs the same policy and tests against a plain postgres:17 container. If anything starts depending on Supabase-specific behaviour, CI will catch it. I also have used Supabase previously in prior projects and Apps that I built.
+
+Local Docker would have matched CI most closely, but it needs admin rights and WSL2, which I don't have on this PC. Native Postgres on Windows can't be reproduced from a clean clone and behaves differently from the Linux container CI uses. That left the hosted options. I chose Supabase over Neon because ADR-010 relies on pgaudit. Supabase supports it, and I confirmed that on first connection, while Neon limits it and restricts superuser access further. I've also used Supabase before in projects and apps I've built, so I know its quirks.
 
 ## Trade-offs
 
-Supabase isn't vanilla Postgres. It comes with its own roles (anon, authenticated, service_role and so on) and schemas like auth and storage, so the drift check will have to ignore anything the policy doesn't own. The postgres user can create roles but isn't a true superuser, which might limit some pgaudit settings. Connections go through the session pooler because the direct connection is IPv6 only. The free project also pauses after about a week idle, so I need to wake it up before a demo, and none of this works offline.
+Supabase isn't vanilla Postgres. It comes with its own roles (anon, authenticated, service_role and so on) and schemas like auth and storage, so the drift check will have to ignore anything the policy doesn't own. The postgres user can create roles but isn't a true superuser, which might limit some pgaudit settings. It can't even set superuser-only role attributes to off, so the drift check verifies them instead. Connections go through the session pooler because the direct connection is IPv6 only. The free project also pauses after about a week idle, so I need to wake it up before a demo, and none of this works offline.
 
 Running CI on plain Postgres is how I keep myself honest here. If the same policy and tests pass on both, nothing depends on Supabase quirks.
 

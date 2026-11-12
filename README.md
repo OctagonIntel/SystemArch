@@ -2,7 +2,7 @@
 
 A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-Where I am: Phase 1 is done. The data generators, ingestion and dbt models work, and the service accounts are already driven by the policy file. Next up is Phase 2: human roles, masking and RLS.
+Where I am: Phase 2 is done. Eleven fake people from an IdP export log in through group roles, personal data is hashed in `marts` with a clear-text `marts_restricted` behind clearance levels, and sales only sees its own region through RLS. Next up is Phase 3: automated access tests, drift detection and CI.
 
 ```mermaid
 flowchart LR
@@ -47,10 +47,14 @@ just seed                 # apply policy, generate data, ingest, build marts
 
 ## Layout
 
-`policy/access.yaml` is the single source of truth for access. `generator/` turns it into SQL. `ddl/` holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, and `dbt/` the staging and mart models.
+`policy/access.yaml` is the single source of truth for access, and `policy/people.yaml` stands in for the identity provider. `generator/` turns them into SQL, and `ddl/governance.sql` holds the functions that re-apply access every time dbt rebuilds a table. `ddl/` holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, and `dbt/` the staging and mart models.
 
 The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md).
 
 ## How changes get in
 
 `main` is protected. Every change goes through a pull request, review comments have to be resolved before it can merge, and PRs are squash-merged so history stays one commit per change. Force pushes and deleting `main` are blocked for everyone, me included. Secret scanning with push protection, Dependabot alerts and private vulnerability reporting are on.
+
+## Credits
+
+Built with [Claude Code](https://claude.com/claude-code), which drafted options and code. The decisions are mine.

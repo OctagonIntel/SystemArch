@@ -1,14 +1,2 @@
-select
-    t.ticket_id,
-    t.customer_id,
-    c.region,
-    t.contact_email,
-    t.subject,
-    t.priority,
-    t.status,
-    t.opened_at,
-    t.closed_at,
-    round(extract(epoch from (t.closed_at - t.opened_at)) / 3600.0, 1) as resolution_hours,
-    t.agent_id
-from {{ ref('stg_support__tickets') }} t
-join {{ ref('stg_crm__customers') }} c using (customer_id)
+-- marts_restricted.fct_tickets with personal data hashed
+{{ select_hashed(ref('restricted_fct_tickets'), 'fct_tickets') }}

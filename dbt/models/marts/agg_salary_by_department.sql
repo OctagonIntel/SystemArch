@@ -1,5 +1,4 @@
--- Salary totals without individual salaries. This is what finance would get
--- instead of dim_employee, if that's how the Phase 2 decision goes.
+-- Salary totals, no individuals
 select
     department,
     region,

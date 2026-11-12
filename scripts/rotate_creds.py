@@ -1,6 +1,6 @@
 """Generates new passwords for the login roles in the policy (ADR-012).
 
-    python -m scripts.rotate_creds                 rotate every service account
+    python -m scripts.rotate_creds                 rotate every login role (service accounts and people)
     python -m scripts.rotate_creds svc_ingest_hr   rotate just that one
     python -m scripts.rotate_creds --missing-only  only roles with no password in .env yet
 
@@ -42,7 +42,7 @@ def update_env_file(values: dict[str, str]) -> None:
     if remaining:
         if out and out[-1].strip():
             out.append("")
-        out.append("# Service account passwords, written by `just rotate-creds`")
+        out.append("# Login passwords (service accounts and people), written by `just rotate-creds`")
         out.extend(f"{k}={v}" for k, v in remaining.items())
     tmp = ENV_FILE.with_suffix(".tmp")
     tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
@@ -51,7 +51,7 @@ def update_env_file(values: dict[str, str]) -> None:
 
 def rotate(roles: list[str] | None = None, missing_only: bool = False) -> list[str]:
     policy = load_policy()
-    login_roles = [r.name for r in policy.login_roles]
+    login_roles = policy.login_roles
     targets = roles or login_roles
     unknown = set(targets) - set(login_roles)
     if unknown:
