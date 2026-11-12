@@ -72,6 +72,25 @@ BEGIN
 END
 $$;
 
+-- Nobody but the listed people (and the admin) may be a member of a policy role.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT m.roleid::regrole AS grp, m.member::regrole AS mem
+    FROM pg_auth_members m
+    WHERE m.roleid::regrole::text IN ('{{ owner }}'{% for role in roles %}, '{{ role.name }}'{% endfor %})
+      AND m.member <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
+      AND (m.roleid::regrole::text, m.member::regrole::text) NOT IN (
+        {% for p in people %}{% for g in p.groups %}('{{ g }}', '{{ p.login }}'), {% endfor %}{% endfor %}('', '')
+      )
+  LOOP
+    EXECUTE format('REVOKE %s FROM %s', r.grp, r.mem);
+    RAISE NOTICE 'Removed % from %', r.mem, r.grp;
+  END LOOP;
+END
+$$;
+
 {% for schema in schemas %}
 CREATE SCHEMA IF NOT EXISTS {{ schema }} AUTHORIZATION {{ owner }};
 {% endfor %}

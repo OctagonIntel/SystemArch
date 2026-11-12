@@ -1,12 +1,7 @@
 -- Generated from policy/*.yaml. Don't edit.
 -- Part 3, as {{ owner }}: rules for dbt-built tables, read by governance.apply_access.
 
-TRUNCATE governance.managed_roles, governance.table_access, governance.column_classification, governance.row_filters;
-
-INSERT INTO governance.managed_roles (role_name) VALUES
-{% for role in roles %}
-  ({{ role.name | sql_literal }}){{ "," if not loop.last else ";" }}
-{% endfor %}
+TRUNCATE governance.table_access, governance.column_classification, governance.row_filters;
 
 {% if table_access %}
 INSERT INTO governance.table_access (role_name, schema_name, table_name, privileges, clearance_rank, regions) VALUES

@@ -68,9 +68,11 @@ class Policy:
     schemas: dict[str, Schema]
     roles: dict[str, Role]
     levels: list[str]
-    classification: dict[str, dict[str, str]]  # table -> column -> level
+    classification: dict[str, dict[str, str]]  # table -> column -> level, public left out
+    declared_columns: dict[str, set[str]]  # table -> every column given a level, public included
     row_filters: dict[str, str]  # schema.table -> column
     people: list[Person] = field(default_factory=list)
+    platform_readers: set[str] = field(default_factory=set)
 
     @property
     def login_roles(self) -> list[str]:
@@ -112,23 +114,24 @@ def _schemas(raw: dict) -> dict[str, Schema]:
     return out
 
 
-def _classification(data: dict) -> tuple[list[str], dict[str, dict[str, str]]]:
+def _classification(data: dict) -> tuple[list[str], dict[str, dict[str, str]], dict[str, set[str]]]:
     spec = data.get("classification") or {}
     levels = spec.get("levels") or ["public"]
     if levels[0] != "public":
         raise PolicyError("classification levels must start with public, the lowest")
-    columns = {}
+    columns, declared = {}, {}
     for table, cols in (spec.get("columns") or {}).items():
         _name(table, "classified table")
-        columns[table] = {}
+        columns[table], declared[table] = {}, set()
         for col, level in (cols or {}).items():
             _name(col, f"column in {table}")
             if level not in levels:
                 raise PolicyError(f"{table}.{col}: level {level!r} isn't one of {levels}")
+            declared[table].add(col)
             if level == "public":
                 continue
             columns[table][col] = level
-    return levels, columns
+    return levels, columns, declared
 
 
 def _people(path: Path, roles: dict[str, Role]) -> list[Person]:
@@ -165,7 +168,7 @@ def load_policy(path: Path = POLICY_FILE, people_path: Path = PEOPLE_FILE) -> Po
 
     owner = _name(data.get("owner"), "owner")
     schemas = _schemas(data.get("schemas"))
-    levels, classification = _classification(data)
+    levels, classification, declared = _classification(data)
 
     row_filters = {}
     for target, column in (data.get("row_filters") or {}).items():
@@ -240,6 +243,7 @@ def load_policy(path: Path = POLICY_FILE, people_path: Path = PEOPLE_FILE) -> Po
         if s.built_by and s.built_by not in roles:
             raise PolicyError(f"schema {s.name}: built_by {s.built_by} isn't a role")
 
-    policy = Policy(owner, schemas, roles, levels, classification, row_filters)
+    policy = Policy(owner, schemas, roles, levels, classification, declared, row_filters)
     policy.people = _people(people_path, roles)
+    policy.platform_readers = set(data.get("platform_readers") or [])
     return policy

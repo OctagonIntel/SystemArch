@@ -2,7 +2,7 @@
 
 A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-Where I am: Phase 2 is done. Eleven fake people from an IdP export log in through group roles, personal data is hashed in `marts` with a clear-text `marts_restricted` behind clearance levels, and sales only sees its own region through RLS. Next up is Phase 3: automated access tests, drift detection and CI.
+Where I am: Phase 3 is under way. `just test` logs in as every person and service account and checks the database does exactly what the policy says, plus separation of duties. `just drift` lists anything changed behind the policy's back. Next up is running it all in CI.
 
 ```mermaid
 flowchart LR
@@ -41,6 +41,8 @@ copy .env.example .env    # fill in the connection details
 just setup                # virtualenv and dependencies
 just up                   # check the connection
 just seed                 # apply policy, generate data, ingest, build marts
+just test                 # access tests as each person, SoD, drift
+just drift                # what differs between the database and the policy
 ```
 
 `just plan` shows the SQL the policy turns into without running it. Run `just` on its own to see every command.
