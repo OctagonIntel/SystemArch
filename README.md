@@ -59,4 +59,4 @@ The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md
 
 ## Credits
 
-Built with [Claude Code](https://claude.com/claude-code), which drafted options and code. The decisions are mine.
+AI tool used: [Claude Code](https://claude.com/claude-code).
