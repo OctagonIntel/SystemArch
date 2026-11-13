@@ -211,6 +211,7 @@ roles:
       marts.fct_tickets: [SELECT]
       marts.dim_customer: [SELECT]
       marts_restricted.fct_tickets: {privileges: [SELECT], clearance: internal}
+      marts_restricted.dim_employee: {privileges: [SELECT], clearance: confidential}
       marts_restricted.dim_customer: {privileges: [SELECT], clearance: confidential}
 
   auditor:
