@@ -46,7 +46,8 @@ transform:
     {{dbt}} build --project-dir dbt --profiles-dir dbt
 
 # Everything from an empty warehouse to built marts
-seed: apply-policy generate ingest transform
+seed: apply-policy generate ingest
+    @just transform  # a fresh `just` so it picks up passwords apply-policy just wrote to .env
 
 # Access tests, separation of duties and drift, logged in as each real person
 test *args:

@@ -1,0 +1,74 @@
+# Builds the warehouse from scratch on a clean Postgres and proves access matches the policy.
+# No secrets: every password is generated for the run and thrown away (ADR-012, ADR-015).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  access-tests:
+    name: Access tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: postgres
+      DB_SSLMODE: disable
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --quiet -r requirements.txt
+
+      - name: Check the connection
+        run: just up
+
+      - name: Render the policy
+        run: just plan > /dev/null
+
+      - name: Build the warehouse
+        run: just seed
+
+      - name: Access tests, separation of duties, drift
+        run: just test
+
+      - name: Drift report
+        if: always()
+        run: just drift
