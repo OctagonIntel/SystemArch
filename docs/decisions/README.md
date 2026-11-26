@@ -19,5 +19,6 @@ Every real decision in this project gets an ADR here, using [the template](0000-
 | [013](0013-pii-classification.md) | What counts as PII | four levels: public, internal, confidential, restricted |
 | [014](0014-marts-ownership.md) | Who owns the tables dbt builds | svc_transform, access re-applied by a dbt post-hook |
 | [015](0015-proving-access.md) | How access is proven | hand-written cases + generated sweep, drift check, required CI |
+| [016](0016-access-review-report.md) | Access review report | one static HTML page from the live catalog, compared with the policy |
 
 Smaller tooling choices that didn't need an ADR: `just` as the task runner because Windows has no make, and pip with a pinned requirements.txt.
