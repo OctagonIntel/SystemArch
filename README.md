@@ -2,7 +2,9 @@
 
 A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-Where I am: Phase 3 is under way. `just test` logs in as every person and service account and checks the database does exactly what the policy says, plus separation of duties. `just drift` lists anything changed behind the policy's back. CI builds the warehouse from scratch on a clean Postgres and runs all of it on every pull request. Next up is Phase 4, the access review report.
+Where I am: Phase 4 is under way. `just report` writes the access review, one HTML page showing who can read what, checked against the live database (ADR-016). Every CI run attaches it as a download.
+
+Phase 3 is done. `just test` logs in as every person and service account and checks the database does exactly what the policy says, plus separation of duties. `just drift` lists anything changed behind the policy's back. CI builds the warehouse from scratch on a clean Postgres and runs all of it on every pull request.
 
 ```mermaid
 flowchart LR
@@ -43,6 +45,7 @@ just up                   # check the connection
 just seed                 # apply policy, generate data, ingest, build marts
 just test                 # access tests as each person, SoD, drift
 just drift                # what differs between the database and the policy
+just report               # access review page in report/out
 ```
 
 `just plan` shows the SQL the policy turns into without running it. Run `just` on its own to see every command.
