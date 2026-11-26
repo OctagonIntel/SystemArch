@@ -2,11 +2,7 @@
 
 A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-Where I am: Phase 4 is under way. Phases 1 to 3 are done: the policy generates every grant, `just test` logs in as each person and service account to prove the database does what the policy says, `just drift` catches anything changed by hand, and CI rebuilds the whole warehouse from scratch on every pull request. Now `just report` writes the access review (ADR-016). Logging, approvals and break-glass are next.
 
-## How it works
-
-Data moves left to right, and each step runs as its own account. Ingest accounts can only insert into their own raw table, dbt runs as `svc_transform`, and people only ever read marts.
 
 ```mermaid
 flowchart LR
