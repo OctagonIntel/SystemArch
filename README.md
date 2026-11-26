@@ -2,7 +2,7 @@
 
 A small Postgres warehouse where access control is the point. Four fake source systems load into one warehouse, and every person and service account gets only the access it needs. That access is enforced in the database itself (grants, column masking, row-level security) and generated from a single policy file. Tests, drift detection and an access review report then prove who can see what.
 
-Where I am: Phase 3 is under way. `just test` logs in as every person and service account and checks the database does exactly what the policy says, plus separation of duties. `just drift` lists anything changed behind the policy's back. Next up is running it all in CI.
+Where I am: Phase 3 is under way. `just test` logs in as every person and service account and checks the database does exactly what the policy says, plus separation of duties. `just drift` lists anything changed behind the policy's back. CI builds the warehouse from scratch on a clean Postgres and runs all of it on every pull request. Next up is Phase 4, the access review report.
 
 ```mermaid
 flowchart LR
@@ -34,7 +34,7 @@ flowchart LR
 
 ## Running it
 
-You need Python 3.11+, [just](https://github.com/casey/just) and a Postgres to point at. I use a Supabase free project, see [ADR-001](docs/decisions/0001-where-the-warehouse-runs.md).
+You need Python 3.11+, [just](https://github.com/casey/just) and Postgres 16 or newer to point at (the role grants use `WITH SET` / `WITH INHERIT`). I use a Supabase free project, see [ADR-001](docs/decisions/0001-where-the-warehouse-runs.md).
 
 ```
 copy .env.example .env    # fill in the connection details
