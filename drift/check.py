@@ -159,13 +159,21 @@ def check_relations(conn, policy: Policy) -> list[Finding]:
             if cmd != "r" or not permissive or len(roles) != 1:
                 found.append(Finding("rls", obj, f"policy {name} isn't a single-role permissive SELECT policy"))
                 continue
-            regions = {"*"} if qual == "true" else set(re.findall(r"[A-Za-z_]+", (re.search(r"'\{(.*)\}'", qual or "") or [None, ""])[1]))
-            actual_policies[name] = (roles[0], regions)
+            actual_policies[name] = (roles[0], policy_regions(qual))
         for name in actual_policies.keys() | expected_policies.keys():
             exp, act = expected_policies.get(name), actual_policies.get(name)
             if exp != act:
                 found.append(Finding("rls", obj, f"policy {name}: expected {_fmt(exp)}, found {_fmt(act)}"))
     return found
+
+
+def policy_regions(qual: str | None) -> set[str]:
+    """Regions an RLS policy written by apply_access lets through. {"*"} for all, empty for none.
+    apply_access writes `true`, `false` or `region = ANY ('{EU,US}'::text[])`."""
+    if qual == "true":
+        return {"*"}
+    match = re.search(r"'\{(.*)\}'", qual or "")
+    return {r.strip('"') for r in match[1].split(",") if r} if match else set()
 
 
 def _fmt(p):

@@ -8,6 +8,10 @@ macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
+vars:
+  # Smallest group an aggregate may show. Below this, totals give away individuals.
+  min_group_size: 5
+
 flags:
   send_anonymous_usage_stats: false
 

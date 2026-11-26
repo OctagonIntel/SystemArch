@@ -57,6 +57,6 @@ test *args:
 drift:
     {{py}} -m drift.check
 
-# Phase 4: access review report
-report:
-    @echo "Not built yet, Phase 4"
+# Access review report: who can read what, as HTML in report/out (add --policy-only to skip the database)
+report *args:
+    {{py}} -m report.build {{args}}

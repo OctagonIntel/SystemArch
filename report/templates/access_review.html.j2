@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Access review {{ generated[:10] }}</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --surface-2: #f5f6f8;
+  --border: #dfe2e7;
+  --text: #191919;
+  --text-2: #666666;
+  --lvl-0: #84b9f3; --lvl-0-ink: #191919;
+  --lvl-1: #338ced; --lvl-1-ink: #191919;
+  --lvl-2: #1b64be; --lvl-2-ink: #ffffff;
+  --lvl-3: #0e3d7e; --lvl-3-ink: #ffffff;
+  --critical: #dc3c3d;
+  --good: #006c10;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #191919;
+    --surface-2: #222326;
+    --border: #3a3c40;
+    --text: #efefef;
+    --text-2: #9c9c9c;
+    --lvl-0: #1757ac; --lvl-0-ink: #ffffff;
+    --lvl-1: #257de0; --lvl-1-ink: #ffffff;
+    --lvl-2: #6aabf1; --lvl-2-ink: #191919;
+    --lvl-3: #b6d5f8; --lvl-3-ink: #191919;
+    --critical: #f0605f;
+    --good: #0aac23;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface); color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; margin: 48px 0 4px; }
+h2 + p.lede { margin-top: 0; }
+.lede, .meta { color: var(--text-2); }
+.meta { font-size: 13px; }
+.meta span + span::before { content: " · "; }
+code { font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+.banner { margin: 20px 0 0; padding: 12px 14px; border: 1px solid var(--border); border-left: 4px solid var(--text-2);
+  border-radius: 6px; background: var(--surface-2); }
+.banner.bad { border-left-color: var(--critical); }
+.banner.ok { border-left-color: var(--good); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 24px; }
+.tile { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+.tile .n { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tile .k { color: var(--text-2); font-size: 13px; }
+.tile.bad .n { color: var(--critical); }
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin: 12px 0; font-size: 13px; color: var(--text-2); }
+.legend .sw { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 22px;
+  border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 6px; vertical-align: middle; }
+
+/* Matrix */
+.scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+table.matrix { border-collapse: separate; border-spacing: 2px; font-size: 12px; background: var(--surface); }
+.matrix th { font-weight: 500; color: var(--text-2); }
+.matrix thead th.schema { text-align: left; padding: 8px 4px 2px; border-bottom: 1px solid var(--border);
+  color: var(--text); font-weight: 600; white-space: nowrap; }
+.matrix thead th.tbl { writing-mode: vertical-rl; transform: rotate(180deg); text-align: left;
+  padding: 6px 0; height: 150px; white-space: nowrap; font-weight: 400; }
+.matrix th.who { position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: left;
+  padding: 0 12px 0 8px; white-space: nowrap; min-width: 190px; }
+.matrix th.who small { color: var(--text-2); font-weight: 400; margin-left: 4px; }
+.matrix th.who b { color: var(--text); font-weight: 500; }
+.matrix tr.group th { position: sticky; left: 0; background: var(--surface); text-align: left; padding: 14px 8px 2px;
+  color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.matrix td { width: 40px; min-width: 40px; height: 34px; padding: 0; text-align: center; border-radius: 4px;
+  font-weight: 600; font-size: 11px; line-height: 1.1; position: relative; cursor: default; }
+.matrix td small { display: block; font-weight: 500; font-size: 9.5px; opacity: 0.9; }
+.matrix td.gap { width: 10px; min-width: 10px; background: none; }
+.none { background: var(--surface-2); color: var(--text-2); }
+.lvl-0 { background: var(--lvl-0); color: var(--lvl-0-ink); }
+.lvl-1 { background: var(--lvl-1); color: var(--lvl-1-ink); }
+.lvl-2 { background: var(--lvl-2); color: var(--lvl-2-ink); }
+.lvl-3 { background: var(--lvl-3); color: var(--lvl-3-ink); }
+.owner { color: var(--lvl-3-ink);
+  background: repeating-linear-gradient(45deg, var(--lvl-3) 0 5px, var(--lvl-2) 5px 7px); }
+td.bad, .sw.bad { outline: 2px solid var(--critical); outline-offset: -2px; }
+td.bad::after { content: "!"; position: absolute; top: -5px; right: -3px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--critical); color: #fff; font-size: 10px; line-height: 14px; }
+td:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+
+#tip { position: fixed; z-index: 10; pointer-events: none; max-width: 360px; padding: 8px 10px; border-radius: 6px;
+  background: var(--text); color: var(--surface); font-size: 12px; line-height: 1.45; white-space: pre-line;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2); display: none; }
+
+/* Tables */
+table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
+.list th, .list td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.list th { color: var(--text-2); font-weight: 500; }
+.list td.lv { white-space: nowrap; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.who-list span { white-space: nowrap; }
+.who-list span + span::before { content: ", "; color: var(--text-2); }
+.who-list small, .muted { color: var(--text-2); }
+.problem { color: var(--critical); font-weight: 500; }
+.problem::before { content: "! "; font-weight: 700; }
+
+details { border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; }
+details > summary { cursor: pointer; padding: 10px 14px; list-style-position: inside; }
+details > summary b { font-weight: 600; }
+details[open] > summary { border-bottom: 1px solid var(--border); }
+details .inner { padding: 4px 14px 12px; overflow-x: auto; }
+.cols { color: var(--text-2); }
+
+.signoff { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-top: 16px; }
+.signoff div { border-bottom: 1px solid var(--text-2); padding-top: 36px; color: var(--text-2); font-size: 12px; }
+
+@media print {
+  body { font-size: 11px; }
+  .scroll { overflow: visible; border: none; }
+  details { break-inside: avoid; }
+  details:not([open]) > .inner { display: block; }
+  #tip { display: none !important; }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Access review</h1>
+<p class="meta">
+  <span>Generated {{ generated }}</span>
+  <span>Policy at <code>{{ commit }}</code></span>
+  <span>People export {{ review.people_exported_at }}</span>
+  <span>{{ "Live database, compared with the policy" if review.mode == "live" else "Policy only" }}</span>
+</p>
+
+{% if review.mode == "policy" %}
+<div class="banner">
+  <b>Policy only.</b> This shows what <code>policy/access.yaml</code> grants, not what the database does.
+  It covers the tables the policy names; staging views and anything else in the warehouse only appear in a live report
+  (<code>just report</code>).
+</div>
+{% elif problems or review.drift or review.missing_logins %}
+<div class="banner bad">
+  <b>The database doesn't match the policy.</b> {{ problems|length }} access difference(s) and {{ review.drift|length }}
+  drift finding(s), listed under <a href="#differences">Differences</a>. <code>just apply-policy</code> puts it back;
+  if a change was wanted, put it in the policy first.
+</div>
+{% else %}
+<div class="banner ok"><b>The database matches the policy.</b> Every login was checked against every table in the warehouse schemas.</div>
+{% endif %}
+
+<div class="tiles">
+  <div class="tile"><div class="n">{{ people }}</div><div class="k">People with a login</div></div>
+  <div class="tile"><div class="n">{{ services }}</div><div class="k">Service accounts</div></div>
+  <div class="tile"><div class="n">{{ restricted_people|length }}</div><div class="k">People who read {{ review.levels[-1] }} data</div></div>
+  {% if review.mode == "live" %}
+  <div class="tile {{ 'bad' if problems or review.drift }}"><div class="n">{{ problems|length + review.drift|length }}</div><div class="k">Differences from the policy</div></div>
+  {% else %}
+  <div class="tile"><div class="n">{{ review.tables|length }}</div><div class="k">Tables the policy names</div></div>
+  {% endif %}
+</div>
+
+<h2>Who can read what</h2>
+<p class="lede">Each cell is the most sensitive clear-text data a login can read in that table. Hashed columns in <code>marts</code> count as public, and anything in <code>raw</code> or <code>staging</code> counts as {{ review.levels[-1] }} because it's unmasked source data. Hover or focus a cell for columns, rows and where the access comes from.</p>
+<div class="legend" aria-label="Legend">
+  {% for lv in review.levels %}
+  <span><span class="sw lvl-{{ loop.index0 }}">{{ short.get(lv, lv[:4]) }}</span>{{ lv }}</span>
+  {% endfor %}
+  <span><span class="sw owner">own</span>owner, can grant</span>
+  <span><span class="sw none">&nbsp;</span>no access</span>
+  <span><b>EU</b>, <b>all</b>: rows it sees</span>
+  <span><b>W</b>: can write</span>
+  {% if review.mode == "live" %}<span><span class="sw none bad">&nbsp;</span>differs from policy</span>{% endif %}
+</div>
+<div class="scroll">
+<table class="matrix">
+  <thead>
+    <tr>
+      <th class="who"></th>
+      {% for s in schema_groups %}
+      {% if not loop.first %}<td class="gap"></td>{% endif %}
+      <th class="schema" colspan="{{ s.tables|length }}">{{ s.name }}</th>
+      {% endfor %}
+    </tr>
+    <tr>
+      <th class="who"></th>
+      {% for s in schema_groups %}
+      {% if not loop.first %}<td class="gap"></td>{% endif %}
+      {% for t in s.tables %}<th class="tbl" scope="col" title="{{ t.key }}">{{ t.name }}</th>{% endfor %}
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for g in login_groups %}
+    <tr class="group"><th colspan="99">{{ g.title }}</th></tr>
+    {% for l in g.logins %}
+    <tr>
+      <th class="who" scope="row"><b>{{ l.label if l.kind == "person" else l.name }}</b>{% if l.kind == "person" %}<small>{{ l.groups|join(", ") }}</small>{% endif %}</th>
+      {% for s in schema_groups %}
+      {% if not loop.first %}<td class="gap"></td>{% endif %}
+      {% for t in s.tables %}
+      {% set c = cells[l.name ~ "|" ~ t.key] %}
+      <td class="{{ c.css }}{{ ' bad' if c.bad }}" data-tip="{{ c.tip }}" {% if not c.empty %}tabindex="0"{% endif %} aria-label="{{ c.tip }}">{{ c.label }}{% if c.sub %}<small>{{ c.sub }}</small>{% endif %}</td>
+      {% endfor %}
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Sensitive data in clear text</h2>
+<p class="lede">Every column above public that someone can read unhashed, most sensitive first.</p>
+<table class="list">
+  <thead><tr><th>Column</th><th>Level</th><th>Who can read it</th></tr></thead>
+  <tbody>
+  {% for s in sensitive %}
+  <tr>
+    <td><code>{{ s.object }}</code></td>
+    <td class="lv"><span class="pill lvl-{{ s.rank }}">{{ s.level }}</span></td>
+    <td class="who-list">{% for r in s.readers %}<span>{{ r.name }} <small>({{ r.via }})</small></span>{% else %}<span class="muted">nobody</span>{% endfor %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if review.mode == "live" %}
+<h2 id="differences">Differences from the policy</h2>
+{% if problems or review.drift or review.missing_logins %}
+<table class="list">
+  <thead><tr><th>Where</th><th>What</th></tr></thead>
+  <tbody>
+  {% for name in review.missing_logins %}<tr><td><code>{{ name }}</code></td><td class="problem">in the policy, but the login doesn't exist</td></tr>{% endfor %}
+  {% for login, table, p in problems %}<tr><td><code>{{ login }}</code> on <code>{{ table }}</code></td><td class="problem">{{ p }}</td></tr>{% endfor %}
+  {% for f in review.drift %}<tr><td><code>{{ f.object }}</code> <small class="muted">{{ f.area }}</small></td><td class="problem">{{ f.problem }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="lede">None. Access per login and the drift check (roles, memberships, grants, row security, default privileges, rule tables) all match the policy.</p>
+{% endif %}
+{% endif %}
+
+<h2>People and service accounts</h2>
+<p class="lede">The same access, written out per login. This is the list a manager confirms in a review.</p>
+{% for d in details %}
+<details{{ " open" if d.bad }}>
+  <summary><b>{{ d.login.label if d.login.kind == "person" else d.login.name }}</b>
+    <span class="muted">· {% if d.login.kind == "person" %}{{ d.login.department }}, groups {{ d.login.groups|join(", ") or "none" }}{% else %}{{ d.login.label }}{% endif %} · {{ d.rows|length }} table{{ "s" if d.rows|length != 1 }}</span>
+    {% if d.bad %}<span class="problem">differs from policy</span>{% endif %}
+  </summary>
+  <div class="inner">
+  {% if d.rows %}
+  <table class="list">
+    <thead><tr><th>Table</th><th>Reads</th><th>Rows</th><th>Writes</th><th>Can't see</th><th>Through</th></tr></thead>
+    <tbody>
+    {% for r in d.rows %}
+    <tr>
+      <td><code>{{ r.table.key }}</code></td>
+      <td class="lv">{% if r.cell.owner %}<span class="pill owner">owner</span>{% elif r.cell.level %}<span class="pill {{ r.view.css }}">{{ r.cell.level }}</span>{% else %}<span class="muted">no</span>{% endif %}</td>
+      <td>{{ regions(r.cell.regions) if r.cell.reads and r.cell.regions is not none and not r.cell.owner else "" }}</td>
+      <td>{{ r.cell.writes|join(", ") }}</td>
+      <td class="cols">{{ r.cell.hidden|join(", ") }}</td>
+      <td class="muted">{{ r.cell.via|join(", ") }}</td>
+    </tr>
+    {% for p in r.cell.problems %}<tr><td></td><td colspan="5" class="problem">{{ p }}</td></tr>{% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No access to any warehouse table.</p>
+  {% endif %}
+  </div>
+</details>
+{% endfor %}
+
+<h2>Outside the policy</h2>
+<table class="list">
+  <thead><tr><th></th><th></th></tr></thead>
+  <tbody>
+  <tr><td>Read everything, whatever the grants</td>
+      <td>{% for b in review.bypass %}<code>{{ b }}</code>{{ ", " if not loop.last }}{% else %}<span class="muted">none</span>{% endfor %}
+      <br><small class="muted">{{ "Superusers, BYPASSRLS roles and members of pg_read_all_data or pg_write_all_data, apart from the admin running this report." if review.mode == "live" else "Platform roles listed in the policy as holding pg_read_all_data." }}</small></td></tr>
+  {% if review.mode == "live" %}
+  <tr><td>Leavers (login disabled)</td>
+      <td>{% for name, comment in review.leavers %}<code>{{ name }}</code> <small class="muted">{{ comment }}</small>{% if not loop.last %}<br>{% endif %}{% else %}<span class="muted">none</span>{% endfor %}</td></tr>
+  {% endif %}
+  </tbody>
+</table>
+
+<h2>Sign-off</h2>
+<p class="lede">The reviewer confirms each person's access is still needed, or lists what should change in <code>policy/people.yaml</code> or <code>policy/access.yaml</code>.</p>
+<div class="signoff">
+  <div>Reviewer</div><div>Date</div><div>Approved / changes needed</div>
+</div>
+</main>
+
+<div id="tip" role="tooltip"></div>
+<script>
+(() => {
+  const tip = document.getElementById("tip");
+  const show = (el, x, y) => {
+    tip.textContent = el.dataset.tip;
+    tip.style.display = "block";
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(x + 14, innerWidth - r.width - 8) + "px";
+    tip.style.top = (y + 16 + r.height > innerHeight ? y - r.height - 10 : y + 16) + "px";
+  };
+  const hide = () => { tip.style.display = "none"; };
+  document.querySelectorAll(".matrix td[data-tip]").forEach(td => {
+    td.addEventListener("mousemove", e => show(td, e.clientX, e.clientY));
+    td.addEventListener("mouseleave", hide);
+    td.addEventListener("focus", () => { const r = td.getBoundingClientRect(); show(td, r.right, r.bottom); });
+    td.addEventListener("blur", hide);
+  });
+})();
+</script>
+</body>
+</html>

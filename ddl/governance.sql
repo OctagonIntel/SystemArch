@@ -1,8 +1,6 @@
 -- Policy rules as data, and the functions that enforce them on dbt-built tables.
 -- Runs as the owner. apply-policy refills the rule tables each run.
 
-DROP TABLE IF EXISTS governance.managed_roles;
-
 -- table_name '*' = whole schema. clearance_rank caps visible columns. regions '{*}' = all.
 CREATE TABLE IF NOT EXISTS governance.table_access (
     role_name      text   NOT NULL,

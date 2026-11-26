@@ -20,7 +20,7 @@ The password gets hashed into a SCRAM verifier in Python before it's sent, so th
 
 ## Trade-offs
 
-Passwords sit in plain text in .env on my laptop. For fake data on a free tier that's fine, but in a real setup they'd go into a secrets manager (AWS Secrets Manager, Vault) with automatic rotation. Rotation is manual for now, so it only happens when I run it.
+Passwords sit in plain text in .env on my laptop, and that includes the logins for people in people.yaml, not just the service accounts. Anyone with the file can log in as anyone. For fake data on a free tier that's fine, but in a real setup they'd go into a secrets manager (AWS Secrets Manager, Vault) with automatic rotation. Rotation is manual for now, so it only happens when I run it.
 
 ## How I know it works
 

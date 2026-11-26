@@ -196,8 +196,13 @@ def load_policy(path: Path = POLICY_FILE, people_path: Path = PEOPLE_FILE) -> Po
         login = rtype == "service"
 
         regions = spec.get("regions")
-        if regions is not None:
-            regions = ("*",) if regions == "all" else tuple(str(r) for r in regions)
+        if regions == "all":
+            regions = ("*",)
+        elif regions is not None:
+            # A bare string would be read letter by letter ("EU" -> E, U), so only lists are accepted.
+            if not isinstance(regions, list) or not all(isinstance(r, str) and r for r in regions):
+                raise PolicyError(f"{name}: regions must be `all` or a list like [EU, US], not {regions!r}")
+            regions = tuple(regions)
         role = Role(name, rtype, spec["purpose"], login, regions)
 
         for schema, privs in (spec.get("schemas") or {}).items():
