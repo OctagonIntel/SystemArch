@@ -1,9 +1,11 @@
 """Connection helpers. Only apply-policy and rotate-creds use the admin connection,
 everything else connects as its own role."""
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
+from psycopg import sql
 from dotenv import load_dotenv
 
 REPO = Path(__file__).resolve().parent.parent
@@ -47,3 +49,13 @@ def connect_as(role: str, password: str | None = None, **kwargs) -> psycopg.Conn
         conn.close()
         raise RuntimeError(f"Expected to be connected as {role} but the database says {actual}")
     return conn
+
+
+@contextmanager
+def as_role(conn: psycopg.Connection, role: str):
+    """Runs the block as `role` on an admin connection, then switches back."""
+    conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(role)))
+    try:
+        yield conn
+    finally:
+        conn.execute("RESET ROLE")

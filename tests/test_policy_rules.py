@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-from psycopg import sql
 
+from common.db import as_role
 from generator.policy import POLICY_FILE, PolicyError, load_policy
 
 DBT_PROJECT = Path(__file__).resolve().parent.parent / "dbt" / "dbt_project.yml"
@@ -33,9 +33,6 @@ def test_salary_totals_hide_small_groups(admin):
     """agg_salary_by_department is readable by analysts, so no group may be small enough to be one person."""
     minimum = yaml.safe_load(DBT_PROJECT.read_text(encoding="utf-8"))["vars"]["min_group_size"]
     owner = admin.execute("select pg_get_userbyid(relowner) from pg_class where oid = 'marts.agg_salary_by_department'::regclass").fetchone()[0]
-    admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(owner)))
-    try:
+    with as_role(admin, owner):
         smallest = admin.execute("select min(headcount) from marts.agg_salary_by_department").fetchone()[0]
-    finally:
-        admin.execute("RESET ROLE")
     assert smallest is None or smallest >= minimum, f"a salary group of {smallest} people, minimum is {minimum}"

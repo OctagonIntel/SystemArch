@@ -134,7 +134,7 @@ Then `just plan` to see the SQL, open a PR, and once it's merged `just apply-pol
 
 ## Layout
 
-`policy/access.yaml` is the single source of truth for access, and `policy/people.yaml` stands in for the identity provider. `generator/` turns them into SQL, and `ddl/governance.sql` holds the functions that re-apply access every time dbt rebuilds a table. `ddl/requests.sql` holds the access request rules. `ddl/` also holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, `dbt/` the staging and mart models, `drift/` the drift check, `report/` the access review and `dashboard/` the request site.
+`policy/access.yaml` is the single source of truth for access, and `policy/people.yaml` stands in for the identity provider. `generator/` turns them into SQL, and `ddl/governance.sql` holds the functions that re-apply access every time dbt rebuilds a table. `ddl/requests.sql` holds the access request rules. `ddl/` also holds the raw table definitions, `seed/` the fake data generators, `ingest/` the loader that runs each source as its own account, `dbt/` the staging and mart models, `drift/` the drift check, `report/` the access review and `dashboard/` the request site.
 
 The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md).
 

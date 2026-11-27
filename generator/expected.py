@@ -4,8 +4,7 @@ Shared by the generated tests and the drift check, so both read the policy the s
 """
 from dataclasses import dataclass, replace
 
-from psycopg import sql
-
+from common.db import as_role
 from generator.policy import Person, Policy
 
 
@@ -67,13 +66,10 @@ def active_requests(conn, policy: Policy) -> list[tuple]:
     Read as the owner, since nobody else can read the request table."""
     if conn.execute("select to_regclass('governance.access_requests')").fetchone()[0] is None:
         return []
-    conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-    try:
+    with as_role(conn, policy.owner):
         return conn.execute("""
             select id, login, group_name, decided_by, expires_at from governance.access_requests
             where status = 'approved' and expires_at > now() order by login, group_name""").fetchall()
-    finally:
-        conn.execute("RESET ROLE")
 
 
 def with_requests(policy: Policy, conn) -> Policy:

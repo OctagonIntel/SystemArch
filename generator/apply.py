@@ -1,4 +1,5 @@
-"""Applies policy/*.yaml to the warehouse. `--plan` prints the SQL instead.
+"""Applies policy/*.yaml to the warehouse. `--plan` prints the SQL instead,
+`--expire` only ends access requests that are past their date (ADR-009).
 
 One transaction: roles and people (admin), then as the owner the DDL, grants, governance
 rules and group memberships, then apply_access on existing dbt tables (builder). Idempotent.
@@ -6,9 +7,7 @@ rules and group memberships, then apply_access on existing dbt tables (builder).
 import argparse
 import sys
 
-from psycopg import sql
-
-from common.db import REPO, admin_connect
+from common.db import REPO, admin_connect, as_role
 from generator.policy import Policy, PolicyError, load_policy
 from generator.render import render
 
@@ -44,6 +43,7 @@ def built_tables(conn, policy: Policy) -> list[tuple[str, str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", action="store_true", help="print the SQL instead of running it")
+    parser.add_argument("--expire", action="store_true", help="only end access requests past their date")
     args = parser.parse_args()
 
     try:
@@ -51,6 +51,12 @@ def main() -> int:
     except PolicyError as e:
         print(f"Policy is invalid: {e}")
         return 1
+
+    if args.expire:
+        with admin_connect() as conn, as_role(conn, policy.owner):
+            ended = conn.execute("select governance.expire_access()").fetchone()[0]
+        print(f"{ended} grant(s) ended")
+        return 0
 
     part1, *owner_parts = render(policy)
 
@@ -67,21 +73,19 @@ def main() -> int:
 
     with admin_connect() as conn:  # commits on success, rolls back on any error
         conn.execute(part1)
-        conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-        for f in ddl_files():
-            conn.execute(f.read_text(encoding="utf-8"))
-        missing = missing_tables(conn, policy)
-        if missing:
-            raise SystemExit(f"Policy grants on tables that don't exist: {', '.join(missing)}")
-        for part in owner_parts:
-            conn.execute(part)
-        conn.execute("RESET ROLE")
+        with as_role(conn, policy.owner):
+            for f in ddl_files():
+                conn.execute(f.read_text(encoding="utf-8"))
+            missing = missing_tables(conn, policy)
+            if missing:
+                raise SystemExit(f"Policy grants on tables that don't exist: {', '.join(missing)}")
+            for part in owner_parts:
+                conn.execute(part)
 
         tables = built_tables(conn, policy)
         for schema, table, builder in tables:
-            conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(builder)))
-            conn.execute("select governance.apply_access(%s::regclass)", (f'"{schema}"."{table}"',))
-            conn.execute("RESET ROLE")
+            with as_role(conn, builder):
+                conn.execute("select governance.apply_access(%s::regclass)", (f'"{schema}"."{table}"',))
 
     print(f"Applied policy: {len(policy.roles)} roles, {len(policy.people)} people, "
           f"{len(policy.schemas)} schemas, owner {policy.owner}")

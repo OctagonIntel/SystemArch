@@ -3,6 +3,7 @@ For each one, work out what the policy allows and check the database agrees."""
 import pytest
 from psycopg import sql
 
+from common.db import as_role
 from conftest import ALLOW, DENY
 from generator.expected import has_schema_usage, person_access, role_access, with_requests
 from generator.policy import load_policy
@@ -27,10 +28,9 @@ def catalog(admin, policy):
         regions = None
         column = policy.row_filters.get(f"{schema}.{name}")
         if column:
-            admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(owner)))
-            regions = {r[0] for r in admin.execute(
-                sql.SQL("select distinct {} from {}.{}").format(*map(sql.Identifier, (column, schema, name)))).fetchall()}
-            admin.execute("RESET ROLE")
+            with as_role(admin, owner):
+                regions = {r[0] for r in admin.execute(
+                    sql.SQL("select distinct {} from {}.{}").format(*map(sql.Identifier, (column, schema, name)))).fetchall()}
         tables.append({"oid": oid, "schema": schema, "name": name, "owner": owner, "columns": cols,
                        "filter": column, "regions": regions})
     return tables

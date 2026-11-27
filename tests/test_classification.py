@@ -4,6 +4,8 @@ import re
 import pytest
 from psycopg import sql
 
+from common.db import as_role
+
 HASH = re.compile(r"^[0-9a-f]{16}$")
 
 
@@ -36,11 +38,8 @@ def test_classified_columns_exist(admin, policy):
 def test_marts_hashes_everything_above_public(admin, policy, table):
     owner = admin.execute("select pg_get_userbyid(relowner) from pg_class where oid = %s::regclass",
                           (f"marts.{table}",)).fetchone()[0]
-    admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(owner)))
-    try:
+    with as_role(admin, owner):
         for col in policy.classification.get(table, {}):
             bad = admin.execute(sql.SQL("select count(*) from marts.{} where {} is not null and {}::text !~ %s").format(
                 sql.Identifier(table), sql.Identifier(col), sql.Identifier(col)), (HASH.pattern,)).fetchone()[0]
             assert bad == 0, f"marts.{table}.{col}: {bad} values aren't hashed"
-    finally:
-        admin.execute("RESET ROLE")

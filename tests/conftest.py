@@ -5,10 +5,11 @@ from collections import OrderedDict
 import psycopg
 import pytest
 
-from common.db import admin_connect, connect_as
+from common.db import admin_connect, as_role, connect_as
 from generator.policy import load_policy
 
 ALLOW, DENY = "allow", "deny"
+TAG = "[test] "  # starts the reason of every access request a test makes, so they can be removed
 
 
 class Sessions:
@@ -63,3 +64,14 @@ def sessions():
 def admin():
     with admin_connect(autocommit=True) as conn:
         yield conn
+
+
+@pytest.fixture
+def clean_requests(admin, policy):
+    """Ends and deletes the test's access requests afterwards, so later tests see people.yaml again."""
+    yield
+    with as_role(admin, policy.owner):
+        admin.execute("update governance.access_requests set expires_at = now() "
+                      "where reason like %s and status = 'approved'", (TAG + "%",))
+        admin.execute("select governance.expire_access()")
+        admin.execute("delete from governance.access_requests where reason like %s", (TAG + "%",))
