@@ -12,7 +12,7 @@ Every real decision in this project gets an ADR here, using [the template](0000-
 | [006](0006-row-filtering.md) | Row filtering | RLS, regions set per role |
 | [007](0007-identity-model.md) | Identity model | group roles plus a fake IdP export of people |
 | [008](0008-policy-as-code-format.md) | Policy as code format | YAML + Python generator |
-| 009 | Who approves access | not yet |
+| [009](0009-who-approves-access.md) | Who approves access | membership by request in the dashboard, rules by pull request |
 | 010 | Logging | not yet |
 | 011 | Break-glass | not yet |
 | [012](0012-service-accounts.md) | Service accounts | one per purpose, passwords in .env, rotate on demand |

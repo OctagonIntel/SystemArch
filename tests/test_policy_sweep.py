@@ -4,7 +4,7 @@ import pytest
 from psycopg import sql
 
 from conftest import ALLOW, DENY
-from generator.expected import has_schema_usage, person_access, role_access
+from generator.expected import has_schema_usage, person_access, role_access, with_requests
 from generator.policy import load_policy
 
 WRITES = ["INSERT", "UPDATE", "DELETE", "TRUNCATE"]
@@ -44,7 +44,8 @@ def expected_for(policy, login, t):
 
 
 @pytest.mark.parametrize("login", LOGINS)
-def test_login_matches_policy(login, policy, sessions, catalog):
+def test_login_matches_policy(login, policy, sessions, catalog, admin):
+    policy = with_requests(policy, admin)  # approved access requests count too (ADR-009)
     problems = []
     q = lambda *parts: sql.SQL(" ").join(parts).as_string()
 

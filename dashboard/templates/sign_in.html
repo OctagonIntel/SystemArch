@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div class="ask" style="margin: 48px auto">
+  <h1>SystemArch access</h1>
+  <p class="lede">Sign in with your own warehouse login. Everything you do here runs as you, and the database decides what you're allowed to do.</p>
+  <form method="post">
+    {% if demo %}
+    <label for="login">Demo: sign in as</label>
+    <select id="login" name="login">
+      {% for p in people %}<option value="{{ p.login }}">{{ p.name }} · {{ p.department }} · {{ p.groups|reject("equalto", "requester")|join(", ") }}</option>{% endfor %}
+    </select>
+    <p class="muted">Demo mode uses the passwords in <code>.env</code>.</p>
+    {% else %}
+    <label for="login">Login</label>
+    <input id="login" name="login" autocomplete="username" placeholder="first_last" required>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    {% endif %}
+    <p><button>Sign in</button></p>
+  </form>
+</div>
+{% endblock %}

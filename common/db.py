@@ -28,8 +28,9 @@ def admin_connect(**kwargs) -> psycopg.Connection:
     return psycopg.connect(url, connect_timeout=10, **kwargs)
 
 
-def connect_as(role: str, **kwargs) -> psycopg.Connection:
-    password = os.environ.get(password_var(role))
+def connect_as(role: str, password: str | None = None, **kwargs) -> psycopg.Connection:
+    """Connects as `role`, with its password from .env unless one is given (the dashboard's sign-in)."""
+    password = password or os.environ.get(password_var(role))
     if not password:
         raise SystemExit(f"{password_var(role)} isn't set. Run `just apply-policy` or `just rotate-creds`.")
     conn = psycopg.connect(

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}My access{% endblock %}
+{% block body %}
+<h1>My access</h1>
+<p class="lede">What you can use right now, read live from the database as you.</p>
+
+<div class="cards">
+{% for g in held if g != "requester" %}
+  {% set r = groups[g] %}
+  <div class="card">
+    <h3>{{ g }}
+      {% if g in running %}<span class="pill temp">until {{ running[g].expires_at.strftime("%d %b %Y") }}</span>
+      {% else %}<span class="pill listed">permanent</span>{% endif %}</h3>
+    <p class="muted">{{ r.purpose }}</p>
+    {% if r.regions %}<p class="muted">Rows: {{ "all regions" if r.regions == ("*",) else r.regions|join(", ") }}</p>{% endif %}
+    {% if g in running %}
+    <form method="post" action="{{ url_for('end', rid=running[g].id) }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <p><button class="quiet">I'm done, end it now</button></p></form>
+    {% endif %}
+  </div>
+{% else %}
+  <p class="empty">No groups yet. Ask for one below.</p>
+{% endfor %}
+</div>
+
+<h2>Tables you can read</h2>
+{% if tables %}
+<div class="scroll"><table>
+  <thead><tr><th>Table</th><th>Columns</th></tr></thead>
+  <tbody>
+  {% for t in tables %}
+  <tr><td><code>{{ t.schema }}.{{ t.name }}</code></td>
+      <td>{% if t.readable == t.total %}all {{ t.total }}{% else %}{{ t.readable }} of {{ t.total }} <span class="muted">(clearance)</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}<p class="empty">None.</p>{% endif %}
+
+<h2>Ask for access</h2>
+{% set open_groups = requestable|rejectattr("has_it")|rejectattr("open_request")|list %}
+{% if open_groups %}
+<form method="post" action="{{ url_for('ask') }}" class="ask">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="group">Group</label>
+  <select id="group" name="group" required>
+    {% for r in open_groups %}<option value="{{ r.group_name }}">{{ r.group_name }}: {{ r.purpose }} (up to {{ r.max_days }} days, approved by {{ r.approvers|join(", ") }})</option>{% endfor %}
+  </select>
+  <label for="reason">Why do you need it?</label>
+  <textarea id="reason" name="reason" minlength="10" required placeholder="What you'll use it for, so the approver can decide"></textarea>
+  <div class="row">
+    <div><label for="days">For how many days?</label><input id="days" name="days" type="number" min="1" value="30" required></div>
+    <button>Send request</button>
+  </div>
+  <p class="muted">Groups not listed here change through <code>people.yaml</code> and a pull request.</p>
+</form>
+{% else %}<p class="empty">You have, or have asked for, every group that can be requested.</p>{% endif %}
+
+<h2>My requests</h2>
+{% if mine %}
+<div class="scroll"><table>
+  <thead><tr><th>Group</th><th>Status</th><th>Reason</th><th>Asked</th><th>Decided</th><th></th></tr></thead>
+  <tbody>
+  {% for r in mine %}
+  <tr>
+    <td><b>{{ r.group_name }}</b> <span class="muted">{{ r.days }} days</span></td>
+    <td><span class="pill {{ r.status }}">{{ r.status }}</span>{% if r.status == "approved" %}<br><span class="muted">until {{ r.expires_at.strftime("%d %b %Y") }}</span>{% endif %}</td>
+    <td>{{ r.reason }}{% if r.note %}<br><span class="muted">Note: {{ r.note }}</span>{% endif %}</td>
+    <td class="muted">{{ r.requested_at.strftime("%d %b %H:%M") }}</td>
+    <td class="muted">{% if r.decided_by %}{{ r.decided_by }}, {{ r.decided_at.strftime("%d %b") }}{% endif %}</td>
+    <td>{% if r.status == "pending" %}<form class="inline" method="post" action="{{ url_for('cancel', rid=r.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="quiet">Cancel</button></form>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}<p class="empty">You haven't asked for anything yet.</p>{% endif %}
+{% endblock %}

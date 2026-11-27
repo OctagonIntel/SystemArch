@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import yaml
 
 from drift.check import find_drift, policy_regions  # one parser for apply_access's RLS policies
-from generator.expected import has_schema_usage, person_access, role_access
+from generator.expected import has_schema_usage, person_access, role_access, with_requests
 from generator.policy import PEOPLE_FILE, Policy
 
 WRITES = ("INSERT", "UPDATE", "DELETE", "TRUNCATE")
@@ -261,6 +261,9 @@ def _people_exported_at() -> str:
 
 
 def collect(policy: Policy, conn=None) -> Review:
+    listed = policy  # as people.yaml has it; the drift check adds requests itself
+    if conn is not None:
+        policy = with_requests(policy, conn)  # approved access requests count as expected (ADR-009)
     logins = logins_of(policy)
     tables = live_tables(conn, policy) if conn else policy_tables(policy)
     review = Review("live" if conn else "policy", policy.levels, logins, tables, {}, _people_exported_at())
@@ -288,7 +291,7 @@ def collect(policy: Policy, conn=None) -> Review:
             act.problems = compare(exp, act)
             review.cells[(login.name, t.key)] = act
 
-    review.drift = find_drift(conn, policy)
+    review.drift = find_drift(conn, listed)
     review.leavers = [tuple(r) for r in conn.execute("""
         select rolname, shobj_description(oid, 'pg_authid') from pg_roles
         where shobj_description(oid, 'pg_authid') like 'left: %' order by 1""").fetchall()]

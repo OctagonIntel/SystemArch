@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass
 from psycopg import sql
 
 from common.db import admin_connect
-from generator.expected import role_access
+from generator.expected import role_access, with_requests
 from generator.policy import Policy, load_policy
 from generator.render import _rules
 
@@ -70,8 +70,10 @@ def check_roles(conn, policy: Policy, admin: str) -> list[Finding]:
             found.append(Finding("role", name, "left but can still log in"))
 
     # Memberships. The admin is a member of roles it created or acts as, that's expected.
+    # The owner holds ADMIN on every people group so it can grant them (ADR-009).
     managed = set(expected_login)
     expected = {(g, p.login) for p in policy.people for g in p.groups}
+    expected |= {(r.name, policy.owner) for r in policy.roles.values() if r.type == "human"}
     actual = {
         (role, member) for role, member in conn.execute(
             "select roleid::regrole::text, member::regrole::text from pg_auth_members").fetchall()
@@ -216,21 +218,31 @@ def check_rules(conn, policy: Policy) -> list[Finding]:
             "select table_name, column_name, level from governance.column_classification").fetchall()}
         actual_rf = {tuple(r) for r in conn.execute(
             "select schema_name, table_name, column_name from governance.row_filters").fetchall()}
+        actual_people = {tuple(r) for r in conn.execute(
+            "select login, name, department, array_to_string(groups, ',') from governance.people").fetchall()}
+        actual_req = {tuple(r) for r in conn.execute(
+            "select group_name, purpose, max_days, array_to_string(approvers, ',') from governance.request_rules").fetchall()}
     finally:
         conn.execute("RESET ROLE")
     expected = {(a["role"], a["schema"], a["table"], ",".join(a["privileges"]), a["clearance_rank"],
                  ",".join(a["regions"]) if a["regions"] else None) for a in rules["table_access"]}
     expected_cls = {(c["table"], c["column"], c["level"]) for c in rules["classification"]}
     expected_rf = {(f["schema"], f["table"], f["column"]) for f in rules["row_filters"]}
+    expected_people = {(p.login, p.name, p.department, ",".join(p.groups)) for p in policy.people}
+    expected_req = {(r["group"], r["purpose"], r["max_days"], ",".join(r["approvers"])) for r in rules["request_rules"]}
     return (_diff("rules", "governance.table_access", expected, actual, "row")
             + _diff("rules", "governance.column_classification", expected_cls, actual_cls, "row")
+            + _diff("rules", "governance.people", expected_people, actual_people, "row")
+            + _diff("rules", "governance.request_rules", expected_req, actual_req, "row")
             + _diff("rules", "governance.row_filters", expected_rf, actual_rf, "row"))
 
 
 def find_drift(conn, policy: Policy) -> list[Finding]:
     admin = conn.execute("select current_user").fetchone()[0]
+    listed = policy
+    policy = with_requests(policy, conn)
     return (check_roles(conn, policy, admin) + check_schemas(conn, policy) + check_relations(conn, policy)
-            + check_functions(conn, policy) + check_default_privileges(conn, policy) + check_rules(conn, policy))
+            + check_functions(conn, policy) + check_default_privileges(conn, policy) + check_rules(conn, listed))
 
 
 def main() -> int:

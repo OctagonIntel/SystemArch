@@ -1,0 +1,32 @@
+-- Generated from policy/*.yaml. Don't edit.
+-- Part 4, as {{ owner }}: who is in which group. people.yaml (ADR-007) plus approved
+-- requests that haven't ended (ADR-009). Anything else in a people group is taken away.
+
+{% for p in people %}
+{% for g in p.groups %}
+GRANT {{ g }} TO {{ p.login }} WITH INHERIT TRUE, SET FALSE;
+{% endfor %}
+{% endfor %}
+
+SELECT governance.expire_access();
+
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT m.roleid::regrole AS grp, m.member::regrole AS mem
+    FROM pg_auth_members m
+    WHERE m.roleid::regrole::text IN ({% for g in human_groups %}'{{ g }}'{{ ", " if not loop.last }}{% endfor %})
+      AND m.grantor = '{{ owner }}'::regrole
+      AND (m.roleid::regrole::text, m.member::regrole::text) NOT IN (
+        {% for p in people %}{% for g in p.groups %}('{{ g }}', '{{ p.login }}'), {% endfor %}{% endfor %}('', '')
+      )
+      AND NOT EXISTS (SELECT 1 FROM governance.access_requests a
+                      WHERE a.status = 'approved' AND a.login = m.member::regrole::text
+                        AND a.group_name = m.roleid::regrole::text)
+  LOOP
+    EXECUTE format('REVOKE %s FROM %s', r.grp, r.mem);
+    RAISE NOTICE 'Removed % from %', r.mem, r.grp;
+  END LOOP;
+END
+$$;

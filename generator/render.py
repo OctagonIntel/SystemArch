@@ -13,6 +13,8 @@ env = Environment(
     keep_trailing_newline=True,
 )
 env.filters["sql_literal"] = lambda s: "'" + str(s).replace("'", "''") + "'"
+env.filters["sql_array"] = lambda xs: "ARRAY[" + ", ".join(env.filters["sql_literal"](x) for x in xs) + "]::text[]"
+TEMPLATES = ("roles.sql.j2", "grants.sql.j2", "rules.sql.j2", "members.sql.j2")
 
 
 def _rules(policy: Policy) -> dict:
@@ -35,11 +37,16 @@ def _rules(policy: Policy) -> dict:
         {"schema": k.split(".")[0], "table": k.split(".")[1], "column": col}
         for k, col in policy.row_filters.items()
     ]
-    return {"table_access": table_access, "classification": classification, "row_filters": row_filters}
+    request_rules = [
+        {"group": r.name, "purpose": r.purpose, "max_days": r.request.max_days, "approvers": list(r.request.approvers)}
+        for r in policy.requestable
+    ]
+    return {"table_access": table_access, "classification": classification, "row_filters": row_filters,
+            "request_rules": request_rules}
 
 
-def render(policy: Policy) -> tuple[str, str, str]:
-    """Returns (part 1 run as admin, part 2 and part 3 run as the owner)."""
+def render(policy: Policy) -> tuple[str, ...]:
+    """Returns the four parts: 1 runs as admin, 2 to 4 as the owner after the DDL."""
     roles = list(policy.roles.values())
     ctx = {
         "owner": policy.owner,
@@ -50,4 +57,4 @@ def render(policy: Policy) -> tuple[str, str, str]:
         "human_groups": [r.name for r in roles if r.type == "human"],
         **_rules(policy),
     }
-    return tuple(env.get_template(t).render(ctx) for t in ("roles.sql.j2", "grants.sql.j2", "rules.sql.j2"))
+    return tuple(env.get_template(t).render(ctx) for t in TEMPLATES)

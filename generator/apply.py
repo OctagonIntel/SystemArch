@@ -1,7 +1,7 @@
 """Applies policy/*.yaml to the warehouse. `--plan` prints the SQL instead.
 
-One transaction: roles and people (admin), DDL and grants (owner), governance
-rules (owner), then apply_access on existing dbt tables (builder). Idempotent.
+One transaction: roles and people (admin), then as the owner the DDL, grants, governance
+rules and group memberships, then apply_access on existing dbt tables (builder). Idempotent.
 """
 import argparse
 import sys
@@ -52,15 +52,15 @@ def main() -> int:
         print(f"Policy is invalid: {e}")
         return 1
 
-    part1, part2, part3 = render(policy)
+    part1, *owner_parts = render(policy)
 
     if args.plan:
         print(part1)
         print(f"SET ROLE {policy.owner};")
         for f in ddl_files():
             print(f"-- {f.relative_to(REPO)}\n{f.read_text(encoding='utf-8')}")
-        print(part2)
-        print(part3)
+        for part in owner_parts:
+            print(part)
         print("RESET ROLE;")
         print("-- then, as each builder: SELECT governance.apply_access(t) for every table dbt has built")
         return 0
@@ -73,8 +73,8 @@ def main() -> int:
         missing = missing_tables(conn, policy)
         if missing:
             raise SystemExit(f"Policy grants on tables that don't exist: {', '.join(missing)}")
-        conn.execute(part2)
-        conn.execute(part3)
+        for part in owner_parts:
+            conn.execute(part)
         conn.execute("RESET ROLE")
 
         tables = built_tables(conn, policy)

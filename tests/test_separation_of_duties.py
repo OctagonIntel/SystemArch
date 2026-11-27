@@ -59,7 +59,7 @@ def test_service_accounts_are_in_no_groups(admin, policy):
 def test_auditor_sees_no_business_data(admin, trusted):
     business = tables_in(admin, ["raw", "staging", "marts", "marts_restricted"])
     readers = roles_where(admin, trusted, """
-        pg_has_role(r.oid, 'auditor', 'MEMBER')
+        (pg_has_role(r.oid, 'auditor', 'USAGE') or pg_has_role(r.oid, 'auditor', 'SET'))
         and exists (select 1 from unnest(%s::oid[]) t(oid) where has_any_column_privilege(r.oid, t.oid, 'SELECT'))""",
         (business,))
     assert not readers, f"Auditor members who can read business data: {sorted(readers)}"
