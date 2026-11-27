@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+{% block body %}
+<h1>Request history</h1>
+<p class="lede">Every access request, who decided it and how it ended. Rows are never deleted.</p>
+{% if rows %}
+<div class="scroll"><table>
+  <thead><tr><th>#</th><th>Person</th><th>Group</th><th>Status</th><th>Reason</th><th>Decided</th><th>Ended</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td class="muted">{{ r.id }}</td>
+    <td>{{ r.name }}</td>
+    <td><code>{{ r.group_name }}</code> <span class="muted">{{ r.days }}d</span></td>
+    <td><span class="pill {{ r.status }}">{{ r.status }}</span></td>
+    <td>{{ r.reason }}{% if r.note %}<br><span class="muted">Note: {{ r.note }}</span>{% endif %}</td>
+    <td class="muted">{% if r.decided_by %}{{ r.decided_by }}<br>{{ r.decided_at.strftime("%d %b %Y %H:%M") }}{% endif %}</td>
+    <td class="muted">{% if r.ended_at %}{{ r.ended_by }}<br>{{ r.ended_at.strftime("%d %b %Y") }}{% elif r.expires_at %}runs until {{ r.expires_at.strftime("%d %b %Y") }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}<p class="empty">No requests yet.</p>{% endif %}
+{% endblock %}

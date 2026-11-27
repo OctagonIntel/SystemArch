@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Access{% endblock %} · SystemArch</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #ffffff; --surface-2: #f5f6f8; --border: #dfe2e7;
+  --text: #191919; --text-2: #666666;
+  --accent: #1b64be; --accent-ink: #ffffff; --accent-soft: #cce3fd;
+  --ok: #006c10; --warn: #8a5a00; --critical: #c42b2c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #191919; --surface-2: #222326; --border: #3a3c40;
+    --text: #efefef; --text-2: #9c9c9c;
+    --accent: #6aabf1; --accent-ink: #191919; --accent-soft: #1757ac;
+    --ok: #0aac23; --warn: #fbb315; --critical: #f0605f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { border-bottom: 1px solid var(--border); }
+.bar { max-width: 1080px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 24px; min-height: 56px; flex-wrap: wrap; }
+.brand { font-weight: 700; letter-spacing: -0.01em; }
+nav { display: flex; gap: 4px; flex: 1; }
+nav a { color: var(--text-2); text-decoration: none; padding: 16px 10px; border-bottom: 2px solid transparent; }
+nav a.on { color: var(--text); border-bottom-color: var(--accent); }
+nav a .count { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 7px; font-size: 11px; margin-left: 4px; }
+.who { color: var(--text-2); font-size: 13px; display: flex; gap: 10px; align-items: center; }
+main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
+h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 17px; margin: 36px 0 8px; }
+.lede, .muted { color: var(--text-2); }
+code { font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.flash { padding: 10px 14px; border-radius: 6px; margin: 0 0 16px; border: 1px solid var(--border); border-left: 4px solid var(--ok); background: var(--surface-2); }
+.flash.error { border-left-color: var(--critical); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+.card h3 { margin: 0 0 2px; font-size: 15px; }
+.card p { margin: 4px 0 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--text-2); font-weight: 500; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--border); }
+.pill.pending { color: var(--warn); border-color: currentColor; }
+.pill.approved { color: var(--ok); border-color: currentColor; }
+.pill.rejected, .pill.revoked { color: var(--critical); border-color: currentColor; }
+.pill.expired, .pill.cancelled { color: var(--text-2); }
+.pill.listed { background: var(--surface-2); }
+.pill.temp { background: var(--accent-soft); border-color: transparent; }
+form.inline { display: inline; }
+label { display: block; font-size: 13px; color: var(--text-2); margin: 10px 0 4px; }
+input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 10px; width: 100%; }
+textarea { min-height: 70px; resize: vertical; }
+button { font: inherit; font-weight: 600; border-radius: 6px; padding: 7px 14px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+button.quiet { background: none; color: var(--text); border-color: var(--border); font-weight: 500; }
+button.danger { background: none; color: var(--critical); border-color: currentColor; }
+.row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 140px; }
+.row > button { flex: 0; }
+.ask { border: 1px solid var(--border); border-radius: 8px; padding: 16px; max-width: 640px; }
+.empty { color: var(--text-2); padding: 12px 0; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+{% if me %}
+<header><div class="bar">
+  <span class="brand">SystemArch access</span>
+  <nav>
+    <a href="{{ url_for('home') }}" class="{{ 'on' if request.endpoint == 'home' }}">My access</a>
+    {% if approves %}<a href="{{ url_for('approvals') }}" class="{{ 'on' if request.endpoint == 'approvals' }}">Approvals</a>{% endif %}
+    {% if is_auditor %}<a href="{{ url_for('history') }}" class="{{ 'on' if request.endpoint == 'history' }}">History</a>{% endif %}
+  </nav>
+  <span class="who">{{ me.name }} · <code>{{ me.login }}</code>
+    <form class="inline" method="post" action="{{ url_for('sign_out') }}"><button class="quiet">Sign out</button></form>
+  </span>
+</div></header>
+{% endif %}
+<main>
+{% for kind, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ kind }}">{{ msg }}</div>{% endfor %}
+{% block body %}{% endblock %}
+</main>
+</body>
+</html>

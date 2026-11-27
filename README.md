@@ -33,7 +33,7 @@ flowchart LR
   AUD --> Auditor
 ```
 
-Access is never granted by hand. Two YAML files describe it, the generator turns them into SQL, and three independent checks read the result back from the database.
+Access is never granted by hand. Two YAML files describe it, the generator turns them into SQL, and three independent checks read the result back from the database. Temporary group membership can also be asked for in the dashboard, and the database grants it once an approver says yes.
 
 ```mermaid
 flowchart LR
@@ -41,6 +41,7 @@ flowchart LR
   POLICY[policy/access.yaml<br/>what each group may do] --> GEN
   GEN[generator<br/>just apply-policy] -->|roles, grants, rule tables| DB[(warehouse)]
   DBT[dbt build] -->|post-hook re-applies access<br/>after every rebuild| DB
+  DASH[dashboard<br/>ask, approve, end] -->|governance functions<br/>check every rule| DB
 
   DB --> TESTS[access tests<br/>log in as each person]
   DB --> DRIFT[drift check<br/>compares the catalog]
@@ -69,6 +70,16 @@ Everything is enforced inside Postgres, in layers. Each one is driven by a part 
   <img alt="Access review: a matrix of people and service accounts against warehouse tables. Analysts read hashed marts in every region, sales see only their own region, only HR and payroll reach restricted columns, and svc_transform owns what dbt builds." src="docs/images/access-review-light.png">
 </picture>
 
+## Asking for access
+
+`just dashboard` opens a small site on your machine. You sign in as yourself and ask for a group with a reason and a number of days. One of that group's approvers approves or rejects it, and approved access ends on its own date. Who approves each group, and for how long at most, is set in `access.yaml` ([ADR-009](docs/decisions/0009-who-approves-access.md)).
+
+The dashboard only shows things and passes on clicks. The rules (only that group's approvers decide, never your own request, a reason for every rejection) live in database functions that see you as the login you signed in with, so the same rules hold from any SQL client.
+
+| You see your access, and what's temporary | An approver decides |
+|---|---|
+| ![My access: Lukas holds analyst permanently and support until 10 December, with the tables he can read](docs/images/dashboard-access.png) | ![Approvals: Daniel sees Sofia's request for sales_us, with her reason, and can approve or reject](docs/images/dashboard-approvals.png) |
+
 ## Running it
 
 You need Python 3.11+, [just](https://github.com/casey/just) and Postgres 16 or newer to point at (the role grants use `WITH SET` / `WITH INHERIT`). I use a Supabase free project, see [ADR-001](docs/decisions/0001-where-the-warehouse-runs.md).
@@ -81,15 +92,18 @@ just seed                 # apply policy, generate data, ingest, build marts
 just test                 # access tests as each person, SoD, drift
 just drift                # what differs between the database and the policy
 just report               # access review page in report/out
+just dashboard --demo     # ask for and approve access on http://127.0.0.1:5000
 ```
 
 `just plan` shows the SQL the policy turns into without running it. Run `just` on its own to see every command.
 
 ## Using it
 
-Every access change is an edit to `policy/`, reviewed in a pull request. Nobody runs a `GRANT` by hand, and if they do, `just drift` and the tests catch it.
+Temporary access to a group goes through the dashboard. Everything else is an edit to `policy/`, reviewed in a pull request. Nobody runs a `GRANT` by hand, and if they do, `just drift` and the tests catch it.
 
-**Give someone access.** Add them to `policy/people.yaml` with the groups their job needs. Their login is their id with an underscore (`ana.silva` becomes `ana_silva`).
+**Someone needs a group for a while.** They ask in the dashboard, and an approver decides there. No pull request.
+
+**Someone joins.** Add them to `policy/people.yaml` with the groups their job always needs. Their login is their id with an underscore (`ana.silva` becomes `ana_silva`).
 
 ```yaml
   - id: ana.silva
@@ -102,13 +116,14 @@ Then `just plan` to see the SQL, open a PR, and once it's merged `just apply-pol
 
 **Someone leaves.** Delete their entry. The next `just apply-policy` takes away their login and groups but keeps the role, so the audit trail still has a name.
 
-**Change what a group can do.** Edit the group under `roles:` in `policy/access.yaml`. A group that reads a region-filtered table must say which `regions:` (a list, or `all`). A group reading `marts_restricted` gets a `clearance:` level, and sees only columns at or below it.
+**Change what a group can do, or who approves it.** Edit the group under `roles:` in `policy/access.yaml`. A group that reads a region-filtered table must say which `regions:` (a list, or `all`). A group reading `marts_restricted` gets a `clearance:` level, and sees only columns at or below it.
 
 ```yaml
   support:
     regions: all
     tables:
       marts_restricted.fct_tickets: {privileges: [SELECT], clearance: internal}
+    request: {approvers: [hannah.berg], max_days: 90}
 ```
 
 **Add a column with personal data.** Every column of a `marts_restricted` table needs a level under `classification:`, and `just test` fails until it has one. Once it's classified, dbt hashes it in the `marts` copy and only roles with enough clearance see it in `marts_restricted`.
@@ -119,7 +134,7 @@ Then `just plan` to see the SQL, open a PR, and once it's merged `just apply-pol
 
 ## Layout
 
-`policy/access.yaml` is the single source of truth for access, and `policy/people.yaml` stands in for the identity provider. `generator/` turns them into SQL, and `ddl/governance.sql` holds the functions that re-apply access every time dbt rebuilds a table. `ddl/` holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, `dbt/` the staging and mart models, `drift/` the drift check and `report/` the access review.
+`policy/access.yaml` is the single source of truth for access, and `policy/people.yaml` stands in for the identity provider. `generator/` turns them into SQL, and `ddl/governance.sql` holds the functions that re-apply access every time dbt rebuilds a table. `ddl/requests.sql` holds the access request rules. `ddl/` also holds the raw table definitions, `seed/` the fake data generators, `ingest/` one loader per source, `dbt/` the staging and mart models, `drift/` the drift check, `report/` the access review and `dashboard/` the request site.
 
 The reasoning behind each choice is in [docs/decisions](docs/decisions/README.md).
 

@@ -2,7 +2,9 @@
 
 Shared by the generated tests and the drift check, so both read the policy the same way.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from psycopg import sql
 
 from generator.policy import Person, Policy
 
@@ -58,3 +60,29 @@ def person_access(policy: Policy, person: Person, schema: str, table: str, colum
 
 def has_schema_usage(policy: Policy, role_names, schema: str) -> bool:
     return any("USAGE" in policy.roles[r].schema_grants.get(schema, ()) for r in role_names if r in policy.roles)
+
+
+def active_requests(conn, policy: Policy) -> list[tuple]:
+    """(id, login, group, decided_by, expires_at) for approved requests still running (ADR-009).
+    Read as the owner, since nobody else can read the request table."""
+    if conn.execute("select to_regclass('governance.access_requests')").fetchone()[0] is None:
+        return []
+    conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
+    try:
+        return conn.execute("""
+            select id, login, group_name, decided_by, expires_at from governance.access_requests
+            where status = 'approved' and expires_at > now() order by login, group_name""").fetchall()
+    finally:
+        conn.execute("RESET ROLE")
+
+
+def with_requests(policy: Policy, conn) -> Policy:
+    """The policy as the database should be right now: people.yaml plus running requests."""
+    extra: dict[str, list[str]] = {}
+    for _, login, group, _, _ in active_requests(conn, policy):
+        extra.setdefault(login, []).append(group)
+    if not extra:
+        return policy
+    people = [replace(p, groups=p.groups + tuple(g for g in extra.get(p.login, []) if g not in p.groups))
+              for p in policy.people]
+    return replace(policy, people=people)

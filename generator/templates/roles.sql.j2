@@ -31,7 +31,13 @@ COMMENT ON ROLE {{ role.name }} IS {{ (role.type ~ ": " ~ role.purpose) | sql_li
 GRANT {{ builder }} TO CURRENT_USER WITH SET TRUE, INHERIT FALSE;
 {% endfor %}
 
--- People from people.yaml (ADR-007). Login plus group membership, nothing else.
+-- The owner grants every group membership, from people.yaml and from approved requests
+-- (ADR-009). ADMIN only: it can't use the groups' access or switch into them.
+{% for g in human_groups %}
+GRANT {{ g }} TO {{ owner }} WITH ADMIN TRUE, INHERIT FALSE, SET FALSE;
+{% endfor %}
+
+-- People from people.yaml (ADR-007). A login and nothing else; groups come in part 4.
 {% for p in people %}
 DO $$
 BEGIN
@@ -42,18 +48,11 @@ END
 $$;
 ALTER ROLE {{ p.login }} LOGIN;
 COMMENT ON ROLE {{ p.login }} IS {{ ("person: " ~ p.name ~ ", " ~ p.department ~ " (" ~ p.id ~ ")") | sql_literal }};
-{% for g in human_groups %}
-{% if g in p.groups %}
-GRANT {{ g }} TO {{ p.login }} WITH INHERIT TRUE, SET FALSE;
-{% else %}
-REVOKE {{ g }} FROM {{ p.login }};
-{% endif %}
-{% endfor %}
 
 {% endfor %}
--- Leavers lose login and groups. The role stays for the audit trail.
+-- Leavers can't log in. The role stays for the audit trail, part 4 takes their groups.
 DO $$
-DECLARE r record; m record;
+DECLARE r record;
 BEGIN
   FOR r IN
     SELECT a.oid, a.rolname
@@ -62,9 +61,6 @@ BEGIN
       AND a.rolname <> ALL (ARRAY[{% for p in people %}'{{ p.login }}'{{ ", " if not loop.last }}{% endfor %}]::name[])
   LOOP
     EXECUTE format('ALTER ROLE %I NOLOGIN', r.rolname);
-    FOR m IN SELECT roleid::regrole AS grp FROM pg_auth_members WHERE member = r.oid LOOP
-      EXECUTE format('REVOKE %s FROM %I', m.grp, r.rolname);
-    END LOOP;
     EXECUTE format('COMMENT ON ROLE %I IS %L', r.rolname,
       'left: ' || substr((SELECT description FROM pg_shdescription WHERE objoid = r.oid), 9) || ', disabled ' || current_date);
     RAISE NOTICE 'Disabled leaver %', r.rolname;
@@ -72,7 +68,8 @@ BEGIN
 END
 $$;
 
--- Nobody but the listed people (and the admin) may be a member of a policy role.
+-- Memberships the admin granted go. In people groups the owner re-grants what's allowed
+-- in part 4, and nobody else may hold the owner or a service account.
 DO $$
 DECLARE r record;
 BEGIN
@@ -80,13 +77,10 @@ BEGIN
     SELECT m.roleid::regrole AS grp, m.member::regrole AS mem
     FROM pg_auth_members m
     WHERE m.roleid::regrole::text IN ('{{ owner }}'{% for role in roles %}, '{{ role.name }}'{% endfor %})
-      AND m.member <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
-      AND (m.roleid::regrole::text, m.member::regrole::text) NOT IN (
-        {% for p in people %}{% for g in p.groups %}('{{ g }}', '{{ p.login }}'), {% endfor %}{% endfor %}('', '')
-      )
+      AND m.grantor = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+      AND m.member NOT IN (SELECT oid FROM pg_roles WHERE rolname IN (current_user, '{{ owner }}'))
   LOOP
     EXECUTE format('REVOKE %s FROM %s', r.grp, r.mem);
-    RAISE NOTICE 'Removed % from %', r.mem, r.grp;
   END LOOP;
 END
 $$;

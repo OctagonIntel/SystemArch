@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block body %}
+<h1>Approvals</h1>
+<p class="lede">Requests for {{ approves|join(", ") }}. You can't approve your own, and access ends on its own on the date shown.</p>
+
+<h2>Waiting for you ({{ pending|length }})</h2>
+{% for r in pending %}
+<div class="card" style="margin-bottom: 12px">
+  <h3>{{ r.name }} <span class="muted">· {{ r.department }}</span> wants <code>{{ r.group_name }}</code> for {{ r.days }} days</h3>
+  <p>{{ r.reason }}</p>
+  <p class="muted">Asked {{ r.requested_at.strftime("%d %b %Y %H:%M") }}</p>
+  <form method="post" action="{{ url_for('decide', rid=r.id) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row">
+      <div><label for="note-{{ r.id }}">Note (needed to reject)</label><input id="note-{{ r.id }}" name="note"></div>
+      <button name="decision" value="approve">Approve</button>
+      <button name="decision" value="reject" class="danger">Reject</button>
+    </div>
+  </form>
+</div>
+{% else %}<p class="empty">Nothing waiting.</p>{% endfor %}
+
+<h2>Running grants you can end ({{ running|length }})</h2>
+{% if running %}
+<div class="scroll"><table>
+  <thead><tr><th>Person</th><th>Group</th><th>Approved by</th><th>Ends</th><th></th></tr></thead>
+  <tbody>
+  {% for r in running %}
+  <tr>
+    <td>{{ r.name }} <span class="muted">{{ r.department }}</span></td>
+    <td><code>{{ r.group_name }}</code></td>
+    <td class="muted">{{ r.decided_by }}</td>
+    <td>{{ r.expires_at.strftime("%d %b %Y") }}</td>
+    <td><form class="inline" method="post" action="{{ url_for('end', rid=r.id) }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="danger">End now</button></form></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}<p class="empty">None.</p>{% endif %}
+{% endblock %}

@@ -53,6 +53,14 @@ seed: apply-policy generate ingest
 test *args:
     {{py}} -m pytest {{args}}
 
+# Access dashboard on http://127.0.0.1:5000: ask for access, approve, history (--demo to pick a person)
+dashboard *args:
+    {{py}} -m dashboard.app {{args}}
+
+# End access requests that are past their date (the dashboard also does this on every page)
+expire:
+    {{py}} -c "from common.db import admin_connect; c = admin_connect(autocommit=True); c.execute('set role wh_owner'); print(c.execute('select governance.expire_access()').fetchone()[0], 'grant(s) ended')"
+
 # List every difference between the live database and the policy
 drift:
     {{py}} -m drift.check

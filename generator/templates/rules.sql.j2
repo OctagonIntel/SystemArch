@@ -1,7 +1,9 @@
 -- Generated from policy/*.yaml. Don't edit.
--- Part 3, as {{ owner }}: rules for dbt-built tables, read by governance.apply_access.
+-- Part 3, as {{ owner }}: rules for dbt-built tables, read by governance.apply_access,
+-- and the people and request rules the access request functions read (ADR-009).
 
-TRUNCATE governance.table_access, governance.column_classification, governance.row_filters;
+TRUNCATE governance.table_access, governance.column_classification, governance.row_filters,
+         governance.people, governance.request_rules;
 
 {% if table_access %}
 INSERT INTO governance.table_access (role_name, schema_name, table_name, privileges, clearance_rank, regions) VALUES
@@ -21,5 +23,19 @@ INSERT INTO governance.column_classification (table_name, column_name, level, le
 INSERT INTO governance.row_filters (schema_name, table_name, column_name) VALUES
 {% for f in row_filters %}
   ({{ f.schema | sql_literal }}, {{ f.table | sql_literal }}, {{ f.column | sql_literal }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+{% endif %}
+
+{% if people %}
+INSERT INTO governance.people (login, name, department, groups) VALUES
+{% for p in people %}
+  ({{ p.login | sql_literal }}, {{ p.name | sql_literal }}, {{ p.department | sql_literal }}, {{ p.groups | sql_array }}){{ "," if not loop.last else ";" }}
+{% endfor %}
+{% endif %}
+
+{% if request_rules %}
+INSERT INTO governance.request_rules (group_name, purpose, max_days, approvers) VALUES
+{% for r in request_rules %}
+  ({{ r.group | sql_literal }}, {{ r.purpose | sql_literal }}, {{ r.max_days }}, {{ r.approvers | sql_array }}){{ "," if not loop.last else ";" }}
 {% endfor %}
 {% endif %}

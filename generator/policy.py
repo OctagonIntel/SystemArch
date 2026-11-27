@@ -34,6 +34,13 @@ class TableGrant:
         return f"{self.schema}.{self.table or '*'}"
 
 
+@dataclass(frozen=True)
+class RequestRule:
+    """ADR-009. Who may approve a request for this group, and for how long at most."""
+    approvers: tuple[str, ...]  # logins
+    max_days: int
+
+
 @dataclass
 class Role:
     name: str
@@ -44,6 +51,7 @@ class Role:
     schema_grants: dict[str, tuple[str, ...]] = field(default_factory=dict)
     table_grants: list[TableGrant] = field(default_factory=list)
     function_grants: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    request: RequestRule | None = None
 
 
 @dataclass(frozen=True)
@@ -59,7 +67,7 @@ class Person:
     login: str
     name: str
     department: str
-    groups: tuple[str, ...]
+    groups: tuple[str, ...]  # from people.yaml plus `everyone`. Requested groups come on top (ADR-009)
 
 
 @dataclass
@@ -73,6 +81,11 @@ class Policy:
     row_filters: dict[str, str]  # schema.table -> column
     people: list[Person] = field(default_factory=list)
     platform_readers: set[str] = field(default_factory=set)
+    everyone: tuple[str, ...] = ()
+
+    @property
+    def requestable(self) -> list[Role]:
+        return [r for r in self.roles.values() if r.request]
 
     @property
     def login_roles(self) -> list[str]:
@@ -134,7 +147,7 @@ def _classification(data: dict) -> tuple[list[str], dict[str, dict[str, str]], d
     return levels, columns, declared
 
 
-def _people(path: Path, roles: dict[str, Role]) -> list[Person]:
+def _people(path: Path, roles: dict[str, Role], everyone: tuple[str, ...] = ()) -> list[Person]:
     if not path.exists():
         return []
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -151,6 +164,7 @@ def _people(path: Path, roles: dict[str, Role]) -> list[Person]:
             raise PolicyError(f"{pid}: login {login} clashes with a policy role")
         seen.add(login)
         groups = tuple(entry.get("groups") or [])
+        groups += tuple(g for g in everyone if g not in groups)
         for g in groups:
             if g not in roles:
                 raise PolicyError(f"{pid}: group {g!r} isn't a role in access.yaml")
@@ -242,13 +256,39 @@ def load_policy(path: Path = POLICY_FILE, people_path: Path = PEOPLE_FILE) -> Po
             if hits and role.regions is None:
                 raise PolicyError(f"{name}: reads row-filtered {hits[0]} but has no `regions:`")
 
+        req = spec.get("request")
+        if req is not None:
+            if rtype != "human":
+                raise PolicyError(f"{name}: only human groups can be requested")
+            days = req.get("max_days") if isinstance(req, dict) else None
+            approvers = req.get("approvers") if isinstance(req, dict) else None
+            if not isinstance(days, int) or isinstance(days, bool) or days < 1:
+                raise PolicyError(f"{name}: request.max_days must be a whole number of days")
+            if not isinstance(approvers, list) or not approvers:
+                raise PolicyError(f"{name}: request.approvers must list at least one person id")
+            role.request = RequestRule(tuple(str(a) for a in approvers), days)
+
         roles[name] = role
 
     for s in schemas.values():
         if s.built_by and s.built_by not in roles:
             raise PolicyError(f"schema {s.name}: built_by {s.built_by} isn't a role")
 
+    everyone = tuple(data.get("everyone") or [])
+    for g in everyone:
+        if g not in roles or roles[g].type != "human":
+            raise PolicyError(f"everyone: {g!r} isn't a human group")
+
     policy = Policy(owner, schemas, roles, levels, classification, declared, row_filters)
-    policy.people = _people(people_path, roles)
+    policy.everyone = everyone
+    policy.people = _people(people_path, roles, everyone)
+
+    # Approvers are people. Store their logins, since that's what the database sees.
+    ids = {p.id: p.login for p in policy.people}
+    for role in policy.requestable:
+        unknown = [a for a in role.request.approvers if a not in ids]
+        if unknown:
+            raise PolicyError(f"{role.name}: approvers {unknown} aren't in people.yaml")
+        role.request = RequestRule(tuple(ids[a] for a in role.request.approvers), role.request.max_days)
     policy.platform_readers = set(data.get("platform_readers") or [])
     return policy

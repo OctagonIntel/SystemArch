@@ -74,6 +74,14 @@ row_filters:
   marts_restricted.dim_customer: region
   marts_restricted.fct_tickets: region
 
+# ADR-009. Every person in people.yaml is also in these groups.
+everyone: [requester]
+
+# ADR-009. A group with `request:` can be asked for in the dashboard. One of its
+# approvers grants it for at most max_days, and it ends on its own. Approvers are
+# person ids from people.yaml, and nobody approves their own request.
+# Groups without `request:` only change through people.yaml and a pull request.
+
 roles:
   # Service accounts, one per job (ADR-012)
 
@@ -134,6 +142,7 @@ roles:
     type: human
     purpose: Company-wide reporting on hashed data
     regions: all
+    request: {approvers: [amara.okafor], max_days: 180}
     schemas:
       marts: [USAGE]
     tables:
@@ -142,6 +151,7 @@ roles:
   hr:
     type: human
     purpose: Full employee records
+    request: {approvers: [priya.nair], max_days: 30}
     schemas:
       marts: [USAGE]
       marts_restricted: [USAGE]
@@ -154,6 +164,7 @@ roles:
     type: human
     purpose: Invoices, deals and salaries. No IDs or birth dates
     regions: all
+    request: {approvers: [tom.whitfield], max_days: 90}
     schemas:
       marts: [USAGE]
       marts_restricted: [USAGE]
@@ -167,6 +178,7 @@ roles:
   payroll:
     type: human
     purpose: Runs payroll. Needs national ID and birth date for tax filings
+    request: {approvers: [priya.nair], max_days: 30}
     schemas:
       marts: [USAGE]
       marts_restricted: [USAGE]
@@ -178,6 +190,7 @@ roles:
     type: human
     purpose: EU customers and deals only
     regions: [EU]
+    request: {approvers: [daniel.reyes], max_days: 90}
     schemas: &sales_schemas
       marts: [USAGE]
       marts_restricted: [USAGE]
@@ -190,6 +203,7 @@ roles:
     type: human
     purpose: US customers and deals only
     regions: [US]
+    request: {approvers: [daniel.reyes], max_days: 90}
     schemas: *sales_schemas
     tables: *sales_tables
 
@@ -197,6 +211,7 @@ roles:
     type: human
     purpose: APAC customers and deals only
     regions: [APAC]
+    request: {approvers: [daniel.reyes], max_days: 90}
     schemas: *sales_schemas
     tables: *sales_tables
 
@@ -204,6 +219,7 @@ roles:
     type: human
     purpose: Tickets and customer contacts, no money
     regions: all
+    request: {approvers: [hannah.berg], max_days: 90}
     schemas:
       marts: [USAGE]
       marts_restricted: [USAGE]
@@ -215,6 +231,23 @@ roles:
 
   auditor:
     type: human
-    purpose: Access and query logs, never business data (Phase 4)
+    purpose: Access and query logs and the access request history, never business data
     schemas:
       audit: [USAGE]
+      governance: [USAGE]
+    functions:
+      governance.all_requests: [EXECUTE]
+
+  requester:
+    type: human
+    purpose: Everyone. Asks for access, and decides requests for groups they approve
+    schemas:
+      governance: [USAGE]
+    functions:
+      governance.requestable: [EXECUTE]
+      governance.request_access: [EXECUTE]
+      governance.cancel_request: [EXECUTE]
+      governance.my_requests: [EXECUTE]
+      governance.requests_to_decide: [EXECUTE]
+      governance.decide_request: [EXECUTE]
+      governance.revoke_access: [EXECUTE]
