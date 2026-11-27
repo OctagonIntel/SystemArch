@@ -34,12 +34,9 @@ rotate-creds *roles:
 generate:
     {{py}} -m seed.generate
 
-# Load every source into raw, each as its own service account
-ingest:
-    {{py}} -m ingest.hr
-    {{py}} -m ingest.crm
-    {{py}} -m ingest.support
-    {{py}} -m ingest.finance
+# Load sources into raw (all of them, or the ones you name), each as its own service account
+ingest *sources:
+    {{py}} -m ingest {{sources}}
 
 # Build staging and marts with dbt, as svc_transform
 transform:
@@ -59,7 +56,7 @@ dashboard *args:
 
 # End access requests that are past their date (the dashboard also does this on every page)
 expire:
-    {{py}} -c "from common.db import admin_connect; c = admin_connect(autocommit=True); c.execute('set role wh_owner'); print(c.execute('select governance.expire_access()').fetchone()[0], 'grant(s) ended')"
+    {{py}} -m generator.apply --expire
 
 # List every difference between the live database and the policy
 drift:

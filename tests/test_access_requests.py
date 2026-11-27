@@ -2,12 +2,12 @@
 so the rest of the suite sees people.yaml again."""
 import psycopg
 import pytest
-from psycopg import sql
 
-from common.db import connect_as
+from common.db import as_role, connect_as
 from drift.check import find_drift
+from conftest import TAG
 
-TAG = "[test] "
+pytestmark = pytest.mark.usefixtures("clean_requests")
 
 
 @pytest.fixture
@@ -22,19 +22,6 @@ def people():
     yield get
     for c in conns.values():
         c.close()
-
-
-@pytest.fixture(autouse=True)
-def cleanup(admin, policy):
-    yield
-    admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-    try:
-        admin.execute("update governance.access_requests set expires_at = now() "
-                      "where reason like %s and status = 'approved'", (TAG + "%",))
-        admin.execute("select governance.expire_access()")
-        admin.execute("delete from governance.access_requests where reason like %s", (TAG + "%",))
-    finally:
-        admin.execute("RESET ROLE")
 
 
 def call(conn, query, *params):
@@ -68,11 +55,8 @@ def test_access_ends_on_its_own(people, admin, policy):
     daniel.execute("select governance.decide_request(%s, true)", (rid,))
     assert "APAC" in regions(sofia)
 
-    admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-    try:  # pretend the day is over
+    with as_role(admin, policy.owner):  # pretend the day is over
         admin.execute("update governance.access_requests set expires_at = now() - interval '1 minute' where id = %s", (rid,))
-    finally:
-        admin.execute("RESET ROLE")
 
     rows = sofia.execute("select status from governance.my_requests() where id = %s", (rid,)).fetchall()
     assert rows == [("expired",)]

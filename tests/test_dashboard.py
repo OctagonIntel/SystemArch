@@ -3,25 +3,13 @@ import os
 import re
 
 import pytest
-from psycopg import sql
 
 from common.db import password_var
 from dashboard.app import app
+from conftest import TAG
 
-TAG = "[test] "
+pytestmark = pytest.mark.usefixtures("clean_requests")
 
-
-@pytest.fixture(autouse=True)
-def cleanup(admin, policy):
-    yield
-    admin.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-    try:
-        admin.execute("update governance.access_requests set expires_at = now() "
-                      "where reason like %s and status = 'approved'", (TAG + "%",))
-        admin.execute("select governance.expire_access()")
-        admin.execute("delete from governance.access_requests where reason like %s", (TAG + "%",))
-    finally:
-        admin.execute("RESET ROLE")
 
 
 def sign_in(login):
@@ -38,7 +26,7 @@ def test_wrong_password_is_refused():
     assert b"Wrong login or password" in page.data
 
 
-def test_ask_approve_and_end(admin, policy):
+def test_ask_approve_and_end():
     sofia, s_csrf = sign_in("sofia_marchetti")
     page = sofia.post("/request", data={"csrf": s_csrf, "group": "support", "reason": TAG + "covering the help desk",
                                         "days": "7"}, follow_redirects=True)

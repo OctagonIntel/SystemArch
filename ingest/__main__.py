@@ -1,6 +1,9 @@
-"""Shared ingest logic. Each source runs as its own service account, which can only
-INSERT into its own raw tables. It can't read them back, change them or delete them."""
+"""Loads source exports into raw: `python -m ingest [source ...]`, every source by default.
+
+Each source runs as its own service account, which can only INSERT into its own raw tables.
+It can't read them back, change them or delete them."""
 import csv
+import sys
 import uuid
 
 from psycopg import sql
@@ -8,6 +11,7 @@ from psycopg import sql
 from common.db import REPO, connect_as
 
 EXPORTS = REPO / "data" / "exports"
+SOURCES = ("hr", "crm", "support", "finance")
 
 
 def ingest(source: str) -> None:
@@ -33,3 +37,10 @@ def ingest(source: str) -> None:
                         copy.write_row([v if v != "" else None for v in row] + [batch_id, path.name])
                         count += 1
             print(f"  {role} -> raw.{table}: {count} rows (batch {batch_id[:8]})")
+
+
+if __name__ == "__main__":
+    for source in sys.argv[1:] or SOURCES:
+        if source not in SOURCES:
+            raise SystemExit(f"Unknown source {source}. Choose from: {', '.join(SOURCES)}")
+        ingest(source)

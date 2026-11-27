@@ -12,9 +12,7 @@ import re
 import sys
 from dataclasses import asdict, dataclass
 
-from psycopg import sql
-
-from common.db import admin_connect
+from common.db import admin_connect, as_role
 from generator.expected import role_access, with_requests
 from generator.policy import Policy, load_policy
 from generator.render import _rules
@@ -209,8 +207,7 @@ def check_default_privileges(conn, policy: Policy) -> list[Finding]:
 def check_rules(conn, policy: Policy) -> list[Finding]:
     """The governance tables must hold exactly what the policy renders to."""
     rules = _rules(policy)
-    conn.execute(sql.SQL("SET ROLE {}").format(sql.Identifier(policy.owner)))
-    try:
+    with as_role(conn, policy.owner):
         actual = {tuple(r) for r in conn.execute(
             "select role_name, schema_name, table_name, array_to_string(privileges, ','), clearance_rank, "
             "array_to_string(regions, ',') from governance.table_access").fetchall()}
@@ -222,8 +219,6 @@ def check_rules(conn, policy: Policy) -> list[Finding]:
             "select login, name, department, array_to_string(groups, ',') from governance.people").fetchall()}
         actual_req = {tuple(r) for r in conn.execute(
             "select group_name, purpose, max_days, array_to_string(approvers, ',') from governance.request_rules").fetchall()}
-    finally:
-        conn.execute("RESET ROLE")
     expected = {(a["role"], a["schema"], a["table"], ",".join(a["privileges"]), a["clearance_rank"],
                  ",".join(a["regions"]) if a["regions"] else None) for a in rules["table_access"]}
     expected_cls = {(c["table"], c["column"], c["level"]) for c in rules["classification"]}
